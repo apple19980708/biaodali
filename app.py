@@ -165,6 +165,9 @@ def api_article():
     else:
         article = get_article_by_id(progress['article_id'])
 
+    # Return fresh progress so the response matches the persisted state
+    progress = get_or_create_daily_progress('U10086', cycle['id'], cycle['current_day'])
+
     return jsonify({'article': article, 'cycle': cycle, 'progress': progress})
 
 
@@ -330,7 +333,25 @@ def retry_day():
     if not cycle:
         return jsonify({'error': 'No active cycle'}), 400
 
+    # Remember the article they just used so we can pick a different one
+    progress = get_or_create_daily_progress('U10086', cycle['id'], cycle['current_day'])
+    old_article_id = progress.get('article_id')
+
     reset_daily_progress('U10086', cycle['id'], cycle['current_day'])
+
+    # Pre-assign a different article for this retry
+    article = get_article_for_method(
+        cycle['method'],
+        exclude_ids=[old_article_id] if old_article_id else []
+    )
+    if not article and old_article_id:
+        # Fallback if there is only one article available
+        article = get_article_for_method(cycle['method'])
+    if article:
+        update_daily_progress('U10086', cycle['id'], cycle['current_day'], {
+            'article_id': article['id']
+        })
+
     update_user_state('U10086', {'state': 'article_reading'})
     return jsonify({'success': True})
 
@@ -342,9 +363,25 @@ def retry_same_method():
     if not cycle:
         return jsonify({'error': 'No active cycle'}), 400
 
+    # Remember the last article so the new cycle starts with a different one
+    progress = get_or_create_daily_progress('U10086', cycle['id'], cycle['current_day'])
+    old_article_id = progress.get('article_id')
+
     complete_cycle(cycle['id'])
     cycle_id = create_cycle('U10086', cycle['method'], cycle['total_days'])
     get_or_create_daily_progress('U10086', cycle_id, 1)
+
+    article = get_article_for_method(
+        cycle['method'],
+        exclude_ids=[old_article_id] if old_article_id else []
+    )
+    if not article and old_article_id:
+        article = get_article_for_method(cycle['method'])
+    if article:
+        update_daily_progress('U10086', cycle_id, 1, {
+            'article_id': article['id']
+        })
+
     update_user_state('U10086', {
         'current_method': cycle['method'],
         'cycle_day': 1,
