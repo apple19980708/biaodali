@@ -630,7 +630,7 @@ const app = {
                 </div>
 
                 <div class="card recording-card py-3 px-4 mb-3">
-                    <div class="flex items-center justify-center gap-4 mb-2">
+                    <div class="flex flex-col items-center justify-center gap-2 mb-2">
                         <div id="qa-timer" class="timer text-4xl">00:00</div>
                         <button id="qa-record-btn" onclick="app.toggleRecording('qa')" class="recording-btn w-16 h-16">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -663,7 +663,9 @@ const app = {
         timerInterval: null,
         recognition: null,
         finalTranscript: '',
-        interimTranscript: ''
+        interimTranscript: '',
+        hasSpeech: false,
+        totalElapsed: 0
     },
 
     toggleRecording(module) {
@@ -689,14 +691,17 @@ const app = {
         recognition.onresult = (event) => {
             let interim = '';
             let final = '';
+            let heardSomething = false;
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 const transcript = event.results[i][0].transcript;
+                if (transcript.trim()) heardSomething = true;
                 if (event.results[i].isFinal) {
                     final += transcript;
                 } else {
                     interim += transcript;
                 }
             }
+            if (heardSomething) this.recording.hasSpeech = true;
             this.recording.finalTranscript += final;
             this.recording.interimTranscript = interim;
             const textarea = document.getElementById(`${this.recording.module}-transcript`);
@@ -732,8 +737,12 @@ const app = {
         this.recording.active = true;
         this.recording.module = module;
         this.recording.startTime = Date.now();
-        this.recording.finalTranscript = '';
         this.recording.interimTranscript = '';
+        this.recording.hasSpeech = false;
+
+        // Continue from existing transcript (manual input or previous recording)
+        const textarea = document.getElementById(`${module}-transcript`);
+        this.recording.finalTranscript = textarea ? (textarea.value || '') : '';
 
         const recognition = this.initSpeechRecognition();
         this.recording.recognition = recognition;
@@ -751,9 +760,10 @@ const app = {
         if (hint) hint.textContent = '录音中... 再次点击结束';
 
         this.recording.timerInterval = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - this.recording.startTime) / 1000);
-            const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
-            const ss = String(elapsed % 60).padStart(2, '0');
+            const sessionElapsed = Math.floor((Date.now() - this.recording.startTime) / 1000);
+            const total = this.recording.totalElapsed + sessionElapsed;
+            const mm = String(Math.floor(total / 60)).padStart(2, '0');
+            const ss = String(total % 60).padStart(2, '0');
             const timerEl = document.getElementById(`${module}-timer`);
             if (timerEl) timerEl.textContent = `${mm}:${ss}`;
         }, 1000);
@@ -763,24 +773,44 @@ const app = {
         this.recording.active = false;
         clearInterval(this.recording.timerInterval);
 
+        // Save elapsed time of this session so the next start continues the timer
+        const sessionElapsed = Math.floor((Date.now() - this.recording.startTime) / 1000);
+        this.recording.totalElapsed += sessionElapsed;
+
+        // Finalize any interim transcript into the textarea
+        this.recording.finalTranscript += this.recording.interimTranscript;
+        this.recording.interimTranscript = '';
+        const textarea = document.getElementById(`${module}-transcript`);
+        if (textarea) textarea.value = this.recording.finalTranscript;
+
         if (this.recording.recognition) {
             try { this.recording.recognition.stop(); } catch(e) {}
             this.recording.recognition = null;
         }
 
+        // Warn if no speech was recognized in this session
+        if (!this.recording.hasSpeech) {
+            alert('未识别出文字');
+        }
+
         const btn = document.getElementById(`${module}-record-btn`);
         const hint = document.getElementById(`${module}-record-hint`);
         if (btn) btn.classList.remove('recording');
-        if (hint) hint.textContent = '录音已保存，可点击右侧重新录音';
+        if (hint) hint.textContent = '录音已暂停，再次点击继续录音';
     },
 
     restartRecording(module) {
         if (!confirm('是否重新录音？之前的录音内容将被清空。')) return;
         const textarea = document.getElementById(`${module}-transcript`);
         if (textarea) textarea.value = '';
+        this.recording.finalTranscript = '';
+        this.recording.totalElapsed = 0;
         if (this.recording.active) {
             this.stopRecording(module);
         }
+        // Reset timer display immediately
+        const timerEl = document.getElementById(`${module}-timer`);
+        if (timerEl) timerEl.textContent = '00:00';
         setTimeout(() => this.startRecording(module), 300);
     },
 
@@ -838,7 +868,7 @@ const app = {
                 </div>
 
                 <div class="card recording-card py-3 px-4 mb-3">
-                    <div class="flex items-center justify-center gap-4 mb-2">
+                    <div class="flex flex-col items-center justify-center gap-2 mb-2">
                         <div id="retell-timer" class="timer text-4xl">00:00</div>
                         <button id="retell-record-btn" onclick="app.toggleRecording('retell')" class="recording-btn w-16 h-16">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1003,7 +1033,7 @@ const app = {
                 </div>
 
                 <div class="card recording-card py-3 px-4 mb-3">
-                    <div class="flex items-center justify-center gap-4 mb-2">
+                    <div class="flex flex-col items-center justify-center gap-2 mb-2">
                         <div id="free-timer" class="timer text-4xl">00:00</div>
                         <button id="free-record-btn" onclick="app.toggleRecording('free')" class="recording-btn w-16 h-16">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
