@@ -148,7 +148,7 @@ const app = {
                     <div class="flex items-center justify-between">
                         <div>
                             <div class="text-xs text-muted">当前进行中的训练</div>
-                            <div class="font-bold text-primary text-sm">${cycle.method} 法则 · 第 ${cycle.current_day} 天</div>
+                            <div class="font-bold text-primary text-sm">${cycle.method} 法则 · 第 ${cycle.current_day} 篇</div>
                         </div>
                         <button onclick="app.continueTraining()" class="btn-primary text-xs py-1.5 px-3">继续训练</button>
                     </div>
@@ -255,22 +255,16 @@ const app = {
         const title = isStar ? 'STAR 法则' : 'PREP 结构';
         const subtitle = isStar ? '情境 · 任务 · 行动 · 结果' : '观点 · 理由 · 例证 · 重申';
         const steps = isStar ? [
-            { key: 'S', name: '情境', desc: 'Situation：交代背景，时间、地点、人物、环境。', color: 'green' },
-            { key: 'T', name: '任务', desc: 'Task：明确目标，你面临的具体挑战。', color: 'green-light' },
-            { key: 'A', name: '行动', desc: 'Action：关键动作，你做了什么、为什么做。', color: 'green' },
-            { key: 'R', name: '结果', desc: 'Result：量化成果，最好有数字。', color: 'green-dark' }
+            { key: 'S', name: '情境', en: 'Situation', desc: '先交代背景：时间、地点、人物、环境。让对方快速理解这件事发生的前提。', tip: '例如：去年 Q3，我们团队负责一款新产品的上线。' },
+            { key: 'T', name: '任务', en: 'Task', desc: '明确你面临的具体目标或挑战。让听众知道你要解决什么问题。', tip: '例如：我的任务是在两周内把用户激活率提升 20%。' },
+            { key: 'A', name: '行动', en: 'Action', desc: '讲述你采取的关键动作，以及为什么这样选择。突出你的思考过程。', tip: '例如：我重新梳理了 onboarding 流程，并做了三轮 A/B 测试。' },
+            { key: 'R', name: '结果', en: 'Result', desc: '用数据和事实收尾。最好能量化成果，让表达有说服力。', tip: '例如：最终激活率提升了 27%，超出预期。' }
         ] : [
-            { key: 'P', name: '观点', desc: 'Point：先亮明立场，让人第一时间知道你的看法。', color: 'green' },
-            { key: 'R', name: '理由', desc: 'Reason：给出 2-3 条支撑理由，建立逻辑骨架。', color: 'green' },
-            { key: 'E', name: '例证', desc: 'Example：用案例、数据或故事让理由更具体。', color: 'green-light' },
-            { key: 'P', name: '重申', desc: 'Point：回扣观点，强化记忆点。', color: 'green-dark' }
+            { key: 'P', name: '观点', en: 'Point', desc: '先亮明立场，让人第一时间知道你的核心看法。', tip: '例如：我认为远程办公会常态化。' },
+            { key: 'R', name: '理由', en: 'Reason', desc: '给出 2-3 条支撑理由，建立清晰的逻辑骨架。', tip: '例如：第一，人才不再受地域限制；第二，企业成本更低。' },
+            { key: 'E', name: '例证', en: 'Example', desc: '用案例、数据或故事让理由更具体、可信。', tip: '例如：某互联网公司在全面远程后，招聘效率提升了 40%。' },
+            { key: 'P', name: '重申', en: 'Point', desc: '回扣观点，强化记忆点，让听众带走一个清晰结论。', tip: '例如：因此，企业应该主动拥抱远程办公。' }
         ];
-
-        const colorMap = {
-            green: 'bg-primary/10 text-primary',
-            'green-light': 'bg-primary/5 text-primary-light',
-            'green-dark': 'bg-primary/20 text-primary-dark'
-        };
 
         container.innerHTML = `
             <div class="fade-in flex flex-col h-full">
@@ -280,29 +274,23 @@ const app = {
                     <p class="text-xs text-black/60">${subtitle}</p>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2 mb-3">
+                <div class="flex-1 overflow-y-auto pr-1 mb-3 space-y-2">
                     ${steps.map((step, idx) => `
-                        <div class="card p-2 mb-0">
-                            <div class="flex items-center gap-2 mb-1">
-                                <div class="w-7 h-7 rounded-lg ${colorMap[step.color]} flex items-center justify-center text-sm font-bold shrink-0">${step.key}</div>
-                                <h3 class="font-bold text-sm text-primary">${step.name}</h3>
+                        <div class="card p-3">
+                            <div class="flex items-center gap-3 mb-2">
+                                <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center text-lg font-bold shrink-0">${step.key}</div>
+                                <div>
+                                    <h3 class="font-bold text-base text-primary">${step.name}</h3>
+                                    <p class="text-xs text-black/40">${step.en}</p>
+                                </div>
                             </div>
-                            <p class="text-xs text-black/60 leading-snug">${step.desc}</p>
+                            <p class="text-sm text-black/70 leading-relaxed mb-2">${step.desc}</p>
+                            <p class="text-xs text-primary/80 bg-primary/5 p-2 rounded-lg">${step.tip}</p>
                         </div>
                     `).join('')}
                 </div>
 
-                <div class="card py-2 px-3 mb-3 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/10">
-                    <h4 class="font-bold text-xs text-primary mb-1">💡 话术模板</h4>
-                    <p class="text-xs text-black/70 leading-snug bg-white/70 p-2 rounded-lg">
-                        ${isStar
-                            ? '当时情况是……，我负责……，于是采取……，最终实现了……。'
-                            : '我的观点是……，理由有三：第一……第二……第三……，因此……。'}
-                    </p>
-                </div>
-
-                <div class="flex-1 min-h-0"></div>
-                <button onclick="app.finishMethodLearning()" class="btn-primary w-full">我已掌握，开始实战</button>
+                <button onclick="app.finishMethodLearning()" class="btn-primary w-full shrink-0">我已掌握，开始实战</button>
             </div>
         `;
     },
@@ -356,16 +344,17 @@ const app = {
                 <div class="card">
                     <div class="flex justify-between items-start mb-4">
                         <div>
-                            <div class="badge badge-accent mb-2">第 ${this.cycle.current_day} 天 · 内容实战</div>
+                            <div class="badge badge-accent mb-2">第 ${this.cycle.current_day} 篇 · 内容实战</div>
                             <h2 class="text-xl font-bold text-primary leading-tight">${this.article.title}</h2>
                         </div>
                         <button onclick="app.swapArticle()" class="btn-outline shrink-0 ml-3">换一篇</button>
                     </div>
-                    <div class="flex items-center gap-2 text-xs text-black/50 mb-4">
+                    <div class="flex items-center gap-2 text-xs text-black/50 mb-2">
                         <span class="badge badge-green">${this.cycle.method}</span>
                         <span>约 ${this.article.content.length} 字</span>
+                        <span class="text-black/40">· 选中上方文字，选择对应的部分</span>
                     </div>
-                    <div id="article-text" class="article-content">
+                    <div id="article-text" class="article-content select-text">
                         ${this.article.content}
                     </div>
                 </div>
@@ -419,22 +408,32 @@ const app = {
     },
 
     handleTextSelection(e) {
-        // Remove existing toolbar
-        const existing = document.getElementById('highlight-toolbar');
-        if (existing) existing.remove();
-
-        const selection = window.getSelection();
-        const text = selection.toString().trim();
-
-        if (!text || text.length < 2) return;
-
         // Prevent toolbar from showing when clicking toolbar buttons
-        if (e.target.closest('#highlight-toolbar')) return;
+        if (e && e.target && e.target.closest('#highlight-toolbar')) return;
 
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
+        // Delay to let mobile selection settle
+        setTimeout(() => {
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
 
-        this.showHighlightToolbar(rect, text);
+            if (!text || text.length < 2) return;
+
+            // Only allow selection inside article-text
+            const anchor = selection.anchorNode;
+            if (!anchor) return;
+            const articleText = document.getElementById('article-text');
+            if (!articleText || !articleText.contains(anchor)) return;
+
+            // Remove existing toolbar
+            const existing = document.getElementById('highlight-toolbar');
+            if (existing) existing.remove();
+
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+
+            this.showHighlightToolbar(rect, text);
+        }, e && e.type === 'touchend' ? 120 : 50);
     },
 
     showHighlightToolbar(rect, text) {
@@ -627,17 +626,22 @@ const app = {
                 <div class="card text-center py-3 px-4 mb-3">
                     <div class="badge badge-accent mb-2 text-xs">问答练习</div>
                     <h2 class="text-lg font-bold mb-2 text-primary leading-relaxed">${question}</h2>
-                    <p class="text-xs text-black/60">屏幕不显示原文，请基于记忆口头作答</p>
+                    <p class="text-xs text-black/60">请基于记忆口头作答</p>
                 </div>
 
-                <div class="card recording-card text-center py-3 px-4 mb-3">
-                    <div id="qa-timer" class="timer text-4xl mb-2">00:00</div>
-                    <button id="qa-record-btn" onclick="app.toggleRecording('qa')" class="recording-btn w-16 h-16 mx-auto mb-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                        </svg>
-                    </button>
-                    <p id="qa-record-hint" class="text-xs text-black/60">点击开始录音</p>
+                <div class="card recording-card py-3 px-4 mb-3">
+                    <div class="flex items-center justify-center gap-4 mb-2">
+                        <div id="qa-timer" class="timer text-4xl">00:00</div>
+                        <button id="qa-record-btn" onclick="app.toggleRecording('qa')" class="recording-btn w-16 h-16">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-center gap-3">
+                        <p id="qa-record-hint" class="text-xs text-black/60">点击开始录音</p>
+                        <button onclick="app.restartRecording('qa')" class="text-xs text-primary underline">重新录音</button>
+                    </div>
                 </div>
 
                 <div class="card py-3 px-4 mb-3 flex-1 flex flex-col">
@@ -656,21 +660,90 @@ const app = {
         active: false,
         module: null,
         startTime: null,
-        timerInterval: null
+        timerInterval: null,
+        recognition: null,
+        finalTranscript: '',
+        interimTranscript: ''
     },
 
     toggleRecording(module) {
         if (this.recording.active && this.recording.module === module) {
             this.stopRecording(module);
         } else {
+            if (this.recording.active) {
+                this.stopRecording(this.recording.module);
+            }
             this.startRecording(module);
         }
     },
 
+    initSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) return null;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'zh-CN';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = (event) => {
+            let interim = '';
+            let final = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    final += transcript;
+                } else {
+                    interim += transcript;
+                }
+            }
+            this.recording.finalTranscript += final;
+            this.recording.interimTranscript = interim;
+            const textarea = document.getElementById(`${this.recording.module}-transcript`);
+            if (textarea) {
+                textarea.value = this.recording.finalTranscript + this.recording.interimTranscript;
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error', event.error);
+            if (event.error === 'not-allowed') {
+                alert('请允许使用麦克风权限，或选择直接输入文字。');
+                this.stopRecording(this.recording.module);
+            }
+        };
+
+        recognition.onend = () => {
+            if (this.recording.active && this.recording.recognition) {
+                try { this.recording.recognition.start(); } catch(e) {}
+            }
+        };
+
+        return recognition;
+    },
+
     startRecording(module) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert('当前浏览器不支持语音识别，请直接输入文字练习。');
+            return;
+        }
+
         this.recording.active = true;
         this.recording.module = module;
         this.recording.startTime = Date.now();
+        this.recording.finalTranscript = '';
+        this.recording.interimTranscript = '';
+
+        const recognition = this.initSpeechRecognition();
+        this.recording.recognition = recognition;
+        try {
+            recognition.start();
+        } catch(e) {
+            console.error('Failed to start recognition', e);
+            this.recording.active = false;
+            return;
+        }
 
         const btn = document.getElementById(`${module}-record-btn`);
         const hint = document.getElementById(`${module}-record-hint`);
@@ -690,26 +763,25 @@ const app = {
         this.recording.active = false;
         clearInterval(this.recording.timerInterval);
 
+        if (this.recording.recognition) {
+            try { this.recording.recognition.stop(); } catch(e) {}
+            this.recording.recognition = null;
+        }
+
         const btn = document.getElementById(`${module}-record-btn`);
         const hint = document.getElementById(`${module}-record-hint`);
         if (btn) btn.classList.remove('recording');
-        if (hint) hint.textContent = '录音已保存';
-
-        const textarea = document.getElementById(`${module}-transcript`);
-        if (textarea && !textarea.value.trim()) {
-            textarea.value = this.generateMockTranscript(module);
-        }
+        if (hint) hint.textContent = '录音已保存，可点击右侧重新录音';
     },
 
-    generateMockTranscript(module) {
-        if (!this.article) return '';
-        const sentences = this.article.content.split(/[。！？]/).filter(s => s.trim());
-        if (module === 'qa') {
-            return sentences.slice(0, 2).join('。') + '。';
-        } else if (module === 'retell') {
-            return this.article.content.substring(0, 120) + '...';
+    restartRecording(module) {
+        if (!confirm('是否重新录音？之前的录音内容将被清空。')) return;
+        const textarea = document.getElementById(`${module}-transcript`);
+        if (textarea) textarea.value = '';
+        if (this.recording.active) {
+            this.stopRecording(module);
         }
-        return '这是我的即兴表达内容...';
+        setTimeout(() => this.startRecording(module), 300);
     },
 
     async submitQA() {
@@ -765,14 +837,19 @@ const app = {
                     <div id="keywords-area" class="hidden text-xs text-primary bg-primary/5 p-2 rounded-xl font-medium"></div>
                 </div>
 
-                <div class="card recording-card text-center py-3 px-4 mb-3">
-                    <div id="retell-timer" class="timer text-4xl mb-2">00:00</div>
-                    <button id="retell-record-btn" onclick="app.toggleRecording('retell')" class="recording-btn w-16 h-16 mx-auto mb-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                        </svg>
-                    </button>
-                    <p id="retell-record-hint" class="text-xs text-black/60">点击开始复述</p>
+                <div class="card recording-card py-3 px-4 mb-3">
+                    <div class="flex items-center justify-center gap-4 mb-2">
+                        <div id="retell-timer" class="timer text-4xl">00:00</div>
+                        <button id="retell-record-btn" onclick="app.toggleRecording('retell')" class="recording-btn w-16 h-16">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-center gap-3">
+                        <p id="retell-record-hint" class="text-xs text-black/60">点击开始复述</p>
+                        <button onclick="app.restartRecording('retell')" class="text-xs text-primary underline">重新录音</button>
+                    </div>
                 </div>
 
                 <div class="card py-3 px-4 mb-3 flex-1 flex flex-col">
@@ -840,18 +917,57 @@ const app = {
     },
 
     // -------------------- Free Output --------------------
+    topicPool: [
+        '分享一次你主导团队协作的经历',
+        '描述一件让你改变看法的事',
+        '说说你最近学到的一项新技能',
+        '介绍一个你敬佩的人',
+        '谈谈你对远程办公的看法',
+        '讲述一次失败及你从中学到的东西',
+        '如果给你一个月假期，你会做什么',
+        '描述一次你化解冲突的经历',
+        '介绍一本对你影响很大的书',
+        '谈谈你对人工智能的看法',
+        '分享一次你主动争取机会的经历',
+        '描述你理想的工作状态',
+        '说说你保持专注的方法',
+        '介绍一个你喜欢的城市',
+        '谈谈你遇到过最大的挑战'
+    ],
+
+    getUsedTopics() {
+        try {
+            return JSON.parse(localStorage.getItem('expressionPro_usedTopics') || '[]');
+        } catch (e) {
+            return [];
+        }
+    },
+
+    markTopicUsed(topic) {
+        const used = this.getUsedTopics();
+        if (!used.includes(topic)) {
+            used.push(topic);
+            // Keep last 30 to avoid running out
+            if (used.length > 30) used.shift();
+            localStorage.setItem('expressionPro_usedTopics', JSON.stringify(used));
+        }
+    },
+
+    getRandomTopics(count = 5) {
+        const used = this.getUsedTopics();
+        const available = this.topicPool.filter(t => !used.includes(t));
+        const pool = available.length >= count ? available : this.topicPool;
+        const shuffled = [...pool].sort(() => Math.random() - 0.5);
+        return shuffled.slice(0, count);
+    },
+
     renderFreeOutput(container) {
-        const topics = [
-            { t: '分享一次你主导团队协作的经历', icon: '🤝' },
-            { t: '描述一件让你改变看法的事', icon: '💭' },
-            { t: '说说你最近学到的一项新技能', icon: '📚' },
-            { t: '介绍一个你敬佩的人', icon: '⭐' },
-            { t: '谈谈你对远程办公的看法', icon: '🏠' }
-        ];
+        const topics = this.getRandomTopics();
+        const method = this.cycle ? this.cycle.method : 'STAR';
 
         container.innerHTML = `
-            <div class="fade-in">
-                <div class="step-indicator">
+            <div class="fade-in flex flex-col h-full">
+                <div class="step-indicator mb-3">
                     <div class="step-dot completed"></div>
                     <div class="step-dot completed"></div>
                     <div class="step-dot completed"></div>
@@ -859,70 +975,104 @@ const app = {
                     <div class="step-dot active"></div>
                 </div>
 
-                <div class="card text-center">
-                    <div class="badge badge-accent mb-3">主动输出</div>
-                    <h2 class="text-xl font-bold mb-2 text-primary">即兴表达</h2>
-                    <p class="text-sm text-black/60">选择一个主题，自由表达 1-2 分钟</p>
+                <div class="card text-center py-3 px-4 mb-3">
+                    <div class="badge badge-accent mb-2 text-xs">主动输出</div>
+                    <h2 class="text-lg font-bold mb-1 text-primary">即兴表达</h2>
+                    <p class="text-xs text-black/60">输入话题，自由表达 1-2 分钟</p>
                 </div>
 
-                <div class="card">
-                    <h3 class="font-bold mb-3 text-primary">推荐主题</h3>
-                    <div class="space-y-2">
-                        ${topics.map((item) => `
-                            <button onclick="app.selectTopic('${item.t.replace(/'/g, "\\'")}')" class="topic-btn" data-topic="${item.t.replace(/"/g, '&quot;')}">
-                                <div class="flex items-center gap-3">
-                                    <span class="text-xl">${item.icon}</span>
-                                    <div class="flex-1">
-                                        <div class="text-sm font-medium text-black/80">${item.t}</div>
-                                        <div class="text-xs text-black/50 mt-1">建议用 ${this.cycle.method} 框架</div>
-                                    </div>
-                                </div>
-                            </button>
-                        `).join('')}
+                <div class="card py-3 px-4 mb-3">
+                    <label class="block text-xs font-medium text-black/70 mb-2">今天想练习什么话题？</label>
+                    <div class="relative">
+                        <input type="text" id="free-topic-input" class="textarea py-3 pr-20" placeholder="输入你想说的话题..." value="">
+                        <button onclick="app.toggleTopicSuggestions()" class="absolute right-3 bottom-3 text-xs text-primary underline">没想法？</button>
                     </div>
-                    <input type="hidden" id="free-topic" value="">
+                    <div id="topic-suggestions" class="hidden mt-3 pt-3 border-t border-primary/10">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-medium text-black/70">推荐话题</span>
+                            <button onclick="app.refreshTopicSuggestions()" class="text-xs text-primary underline">换一换</button>
+                        </div>
+                        <div class="space-y-2" id="topic-list">
+                            ${topics.map(t => `
+                                <button onclick="app.useSuggestedTopic('${t.replace(/'/g, "\\'")}')" class="topic-btn text-left text-sm py-2 px-3 rounded-xl border border-primary/10 bg-white hover:bg-primary/5 transition-colors w-full">
+                                    ${t}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
                 </div>
 
-                <div class="card recording-card text-center">
-                    <div id="free-timer" class="timer mb-4">00:00</div>
-                    <button id="free-record-btn" onclick="app.toggleRecording('free')" class="recording-btn mx-auto mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                        </svg>
-                    </button>
-                    <p id="free-record-hint" class="text-sm text-black/60">点击开始录音</p>
+                <div class="card recording-card py-3 px-4 mb-3">
+                    <div class="flex items-center justify-center gap-4 mb-2">
+                        <div id="free-timer" class="timer text-4xl">00:00</div>
+                        <button id="free-record-btn" onclick="app.toggleRecording('free')" class="recording-btn w-16 h-16">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-center gap-3">
+                        <p id="free-record-hint" class="text-xs text-black/60">点击开始录音</p>
+                        <button onclick="app.restartRecording('free')" class="text-xs text-primary underline">重新录音</button>
+                    </div>
+                    <p class="text-center text-xs text-black/40 mt-2">建议用 ${method} 框架组织表达</p>
                 </div>
 
-                <div class="card">
-                    <label class="block text-sm font-medium text-black/70 mb-2">或直接输入文字：</label>
-                    <textarea id="free-transcript" rows="4" class="textarea" placeholder="在这里输入你的即兴表达..."></textarea>
+                <div class="card py-3 px-4 mb-3 flex-1 flex flex-col">
+                    <label class="block text-xs font-medium text-black/70 mb-2">或直接输入文字：</label>
+                    <textarea id="free-transcript" class="textarea flex-1" placeholder="在这里输入你的即兴表达..."></textarea>
                 </div>
 
-                <div id="free-feedback" class="hidden"></div>
+                <div id="free-feedback" class="hidden mb-3"></div>
 
                 <button id="free-finish" onclick="app.submitFree()" class="btn-primary w-full">完成今日训练</button>
             </div>
         `;
     },
 
-    selectTopic(topic) {
-        document.getElementById('free-topic').value = topic;
-        document.querySelectorAll('.topic-btn').forEach(btn => {
-            if (btn.dataset.topic === topic) {
-                btn.classList.add('selected');
-            } else {
-                btn.classList.remove('selected');
+    toggleTopicSuggestions() {
+        const panel = document.getElementById('topic-suggestions');
+        if (panel) {
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) {
+                this.refreshTopicSuggestions();
             }
-        });
+        }
+    },
+
+    refreshTopicSuggestions() {
+        const list = document.getElementById('topic-list');
+        if (!list) return;
+        const topics = this.getRandomTopics();
+        list.innerHTML = topics.map(t => `
+            <button onclick="app.useSuggestedTopic('${t.replace(/'/g, "\\'")}')" class="topic-btn text-left text-sm py-2 px-3 rounded-xl border border-primary/10 bg-white hover:bg-primary/5 transition-colors w-full">
+                ${t}
+            </button>
+        `).join('');
+    },
+
+    useSuggestedTopic(topic) {
+        const input = document.getElementById('free-topic-input');
+        if (input) input.value = topic;
+        const panel = document.getElementById('topic-suggestions');
+        if (panel) panel.classList.add('hidden');
+        // Mark as used so it won't appear in future "换一换"
+        this.markTopicUsed(topic);
     },
 
     async submitFree() {
         const transcript = document.getElementById('free-transcript').value.trim();
-        const topic = document.getElementById('free-topic').value || '自由主题';
+        const topicInput = document.getElementById('free-topic-input');
+        const topic = (topicInput ? topicInput.value : '') || '自由主题';
 
         if (!transcript) {
             alert('请先输入或录制表达内容');
             return;
+        }
+
+        // Mark topic as used so suggestions won't repeat it
+        if (topic !== '自由主题') {
+            this.markTopicUsed(topic);
         }
 
         const res = await fetch('/api/free/feedback', {
@@ -974,11 +1124,11 @@ const app = {
         container.innerHTML = `
             <div class="fade-in text-center py-8">
                 <div class="w-20 h-20 bg-gradient-to-br from-accent to-accent-light rounded-full mx-auto mb-6 flex items-center justify-center text-white text-3xl shadow-lg">🎉</div>
-                <h2 class="text-2xl font-bold mb-3 text-primary">${isLastDay ? '周期完成！' : '今日训练完成！'}</h2>
+                <h2 class="text-2xl font-bold mb-3 text-primary">${isLastDay ? '周期完成！' : '本篇训练完成！'}</h2>
                 <p class="text-black/60 mb-8 px-4">
                     ${isLastDay
-                        ? '你已经完成了当前方法的全部训练，可以解锁新方法。'
-                        : `今天是第 ${currentDay}/${totalDays} 天，明天继续加油！`}
+                        ? '你已经完成了当前方法的全部训练，可以解锁新方法，也可以再巩固一篇。'
+                        : `已完成第 ${currentDay}/${totalDays} 篇，继续加油！`}
                 </p>
 
                 <div class="card mb-6 text-left">
@@ -987,13 +1137,13 @@ const app = {
                         <div class="progress-fill" style="width: ${progress}%"></div>
                     </div>
                     <div class="flex justify-between text-sm text-black/60">
-                        <span>第 ${currentDay} 天</span>
+                        <span>第 ${currentDay} 篇</span>
                         <span>${progress}%</span>
                     </div>
                 </div>
 
                 <div class="card mb-6 text-left">
-                    <h3 class="font-bold mb-3 text-primary">今日打卡</h3>
+                    <h3 class="font-bold mb-3 text-primary">本篇打卡</h3>
                     <div class="grid grid-cols-5 gap-2 text-center text-xs">
                         <div class="p-2 rounded-lg bg-primary/5 text-primary font-medium">方法<br>✓</div>
                         <div class="p-2 rounded-lg bg-primary/5 text-primary font-medium">分析<br>✓</div>
@@ -1003,9 +1153,15 @@ const app = {
                     </div>
                 </div>
 
-                <button onclick="app.nextDay()" class="btn-primary w-full">
-                    ${isLastDay ? '解锁新方法' : '进入下一天'}
-                </button>
+                <div class="space-y-3">
+                    ${isLastDay ? `
+                        <button onclick="app.unlockNewMethod()" class="btn-primary w-full">解锁新方法</button>
+                        <button onclick="app.retrySameMethod()" class="btn-secondary w-full">再学一篇本方法</button>
+                    ` : `
+                        <button onclick="app.nextDay()" class="btn-primary w-full">完成</button>
+                        <button onclick="app.retryDay()" class="btn-secondary w-full">再练一篇</button>
+                    `}
+                </div>
             </div>
         `;
     },
@@ -1015,6 +1171,32 @@ const app = {
         const data = await res.json();
         await this.loadUser();
         this.render();
+    },
+
+    async retryDay() {
+        // Stay on current day, reset today's progress and start a new article
+        const res = await fetch('/api/day/retry', { method: 'POST' });
+        if (res.ok) {
+            await this.loadUser();
+            this.render();
+        }
+    },
+
+    async unlockNewMethod() {
+        const res = await fetch('/api/day/complete', { method: 'POST' });
+        if (res.ok) {
+            await this.loadUser();
+            this.state = 'select_method';
+            this.render();
+        }
+    },
+
+    async retrySameMethod() {
+        const res = await fetch('/api/day/retry-method', { method: 'POST' });
+        if (res.ok) {
+            await this.loadUser();
+            this.render();
+        }
     }
 };
 

@@ -6,7 +6,7 @@ from datetime import datetime
 from db import (
     init_db, seed_data, get_or_create_user, update_user_state,
     get_active_cycle, create_cycle, complete_cycle,
-    get_or_create_daily_progress, update_daily_progress,
+    get_or_create_daily_progress, update_daily_progress, reset_daily_progress,
     get_article_for_method, get_article_by_id,
     save_drag_analysis, save_recording,
     checkin_today, get_checkin_dates, get_streak,
@@ -321,6 +321,37 @@ def complete_day():
     })
 
     return jsonify({'cycle_completed': False, 'next_day': next_day})
+
+
+@app.route('/api/day/retry', methods=['POST'])
+def retry_day():
+    """Let the user practice another article on the same day."""
+    cycle = get_active_cycle('U10086')
+    if not cycle:
+        return jsonify({'error': 'No active cycle'}), 400
+
+    reset_daily_progress('U10086', cycle['id'], cycle['current_day'])
+    update_user_state('U10086', {'state': 'article_reading'})
+    return jsonify({'success': True})
+
+
+@app.route('/api/day/retry-method', methods=['POST'])
+def retry_same_method():
+    """Complete current cycle and start a fresh cycle with the same method."""
+    cycle = get_active_cycle('U10086')
+    if not cycle:
+        return jsonify({'error': 'No active cycle'}), 400
+
+    complete_cycle(cycle['id'])
+    cycle_id = create_cycle('U10086', cycle['method'], cycle['total_days'])
+    get_or_create_daily_progress('U10086', cycle_id, 1)
+    update_user_state('U10086', {
+        'current_method': cycle['method'],
+        'cycle_day': 1,
+        'cycle_total_days': cycle['total_days'],
+        'state': 'article_reading'
+    })
+    return jsonify({'success': True, 'cycle_id': cycle_id})
 
 
 # -------------------- API: Settings --------------------

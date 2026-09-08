@@ -287,6 +287,22 @@ def update_daily_progress(user_id, cycle_id, day, updates):
     conn.close()
 
 
+def reset_daily_progress(user_id, cycle_id, day):
+    """Reset a single day's progress so the user can practice again."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE daily_progress
+        SET article_id = NULL, method_learned = 0, drag_completed = 0,
+            qa_completed = 0, retell_completed = 0, free_completed = 0, completed = 0
+        WHERE user_id = ? AND cycle_id = ? AND day = ?
+    ''', (user_id, cycle_id, day))
+    cursor.execute('DELETE FROM recordings WHERE user_id = ? AND cycle_id = ? AND day = ?', (user_id, cycle_id, day))
+    cursor.execute('DELETE FROM drag_analysis WHERE user_id = ? AND cycle_id = ? AND day = ?', (user_id, cycle_id, day))
+    conn.commit()
+    conn.close()
+
+
 def get_article_for_method(method, exclude_ids=None):
     conn = get_connection()
     cursor = conn.cursor()
