@@ -352,7 +352,7 @@ const app = {
                     <div class="flex items-center gap-2 text-xs text-black/50 mb-2">
                         <span class="badge badge-green">${this.cycle.method}</span>
                         <span>约 ${this.article.content.length} 字</span>
-                        <span class="text-black/40">· 选中上方文字，选择对应的部分</span>
+                        <span class="text-black/40">· 对文章文字划线，选择对应的部分</span>
                     </div>
                     <div id="article-text" class="article-content select-text">
                         ${this.article.content}
@@ -363,9 +363,9 @@ const app = {
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <h3 class="font-bold text-lg text-primary">结构分析</h3>
-                            <p class="text-sm text-black/60">选中上方文字，选择对应的 ${this.cycle.method} 部分</p>
+                            <p class="text-sm text-black/60">对文章文字划线，选择对应的 ${this.cycle.method} 部分</p>
                         </div>
-                        <button onclick="app.resetHighlights()" class="btn-outline text-xs">清除标记</button>
+                        <button onclick="app.resetHighlights()" class="btn-outline text-xs reset-highlights-btn">清除<br>标记</button>
                     </div>
 
                     <div class="space-y-3">
@@ -589,9 +589,59 @@ const app = {
             body: JSON.stringify({ mappings: this.selections })
         });
 
-        if (res.ok) {
+        const data = await res.json();
+
+        if (data.success) {
             await this.loadUser();
             this.render();
+        } else {
+            this.showDragCorrections(data.correct_texts, data.message);
+        }
+    },
+
+    showDragCorrections(correctTexts, message) {
+        // Clear the user's incorrect highlights first
+        this.resetHighlights();
+
+        // Highlight the correct text spans inside the article
+        const articleText = document.getElementById('article-text');
+        if (articleText && correctTexts) {
+            let html = articleText.innerHTML;
+            Object.entries(correctTexts).forEach(([slot, text]) => {
+                if (!text || text.length < 2) return;
+                const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(escaped, 'g');
+                html = html.replace(regex, `<span class="hl-correct hl-correct-${slot.toLowerCase()}">$&</span>`);
+            });
+            articleText.innerHTML = html;
+        }
+
+        // Show correction banner
+        let banner = document.getElementById('drag-correction-banner');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'drag-correction-banner';
+            banner.className = 'card drag-correction-banner mb-3';
+            const analysisCard = document.querySelector('.analysis-section')?.closest('.card');
+            if (analysisCard && analysisCard.parentNode) {
+                analysisCard.parentNode.insertBefore(banner, analysisCard);
+            }
+        }
+        banner.innerHTML = `
+            <p class="text-sm font-medium">${message}</p>
+            <p class="text-xs text-black/60 mt-1">橙色标注为正确结构，对照后可继续练习</p>
+        `;
+
+        // Change submit button to allow proceeding after review
+        const btn = document.getElementById('submit-analysis');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '我已对照，继续练习';
+            btn.onclick = async () => {
+                await fetch('/api/drag/force-complete', { method: 'POST' });
+                await this.loadUser();
+                this.render();
+            };
         }
     },
 
@@ -645,7 +695,7 @@ const app = {
                 </div>
 
                 <div class="card py-3 px-4 mb-3 flex-1 flex flex-col">
-                    <label class="block text-xs font-medium text-black/70 mb-2">或直接输入文字：</label>
+                    <label class="block text-xs font-medium text-black/70 mb-2">输入文字（语音将自动识别为文字）：</label>
                     <textarea id="qa-transcript" class="textarea flex-1" placeholder="在这里输入你的回答..."></textarea>
                 </div>
 
@@ -883,7 +933,7 @@ const app = {
                 </div>
 
                 <div class="card py-3 px-4 mb-3 flex-1 flex flex-col">
-                    <label class="block text-xs font-medium text-black/70 mb-2">或直接输入文字：</label>
+                    <label class="block text-xs font-medium text-black/70 mb-2">输入文字（语音将自动识别为文字）：</label>
                     <textarea id="retell-transcript" class="textarea flex-1" placeholder="在这里输入你的复述..."></textarea>
                 </div>
 
@@ -924,15 +974,15 @@ const app = {
 
         if (fb.suggestion && fb.polish) {
             fbEl.innerHTML = `
-                <div class="feedback-bubble mb-3">【建议】${fb.suggestion}</div>
-                <div class="card bg-black/5">
-                    <h4 class="font-bold mb-2 text-primary">【润色】</h4>
-                    <p class="text-sm leading-relaxed text-black/70">${fb.polish}</p>
+                <div class="feedback-bubble mb-3">${fb.suggestion}</div>
+                <div class="card retell-polish-card">
+                    <h4 class="font-bold mb-2 text-primary">润色参考</h4>
+                    <p class="text-sm leading-relaxed text-black/70 retell-polish-text">${fb.polish}</p>
                     <p class="text-sm font-medium mt-3" style="color: var(--accent)">${fb.comfort}</p>
                 </div>
             `;
         } else {
-            fbEl.innerHTML = `<div class="feedback-bubble">【建议】${fb.suggestion || fb}</div>`;
+            fbEl.innerHTML = `<div class="feedback-bubble">${fb.suggestion || fb}</div>`;
         }
         fbEl.classList.remove('hidden');
 
@@ -989,6 +1039,14 @@ const app = {
         const pool = available.length >= count ? available : this.topicPool;
         const shuffled = [...pool].sort(() => Math.random() - 0.5);
         return shuffled.slice(0, count);
+    },
+
+    formatMetricLabel(label) {
+        // Split 4-character metric labels into two 2-character lines
+        if (label && label.length === 4) {
+            return `${label.slice(0, 2)}<br>${label.slice(2, 4)}`;
+        }
+        return label;
     },
 
     renderFreeOutput(container) {
@@ -1049,7 +1107,7 @@ const app = {
                 </div>
 
                 <div class="card py-3 px-4 mb-3 flex-1 flex flex-col">
-                    <label class="block text-xs font-medium text-black/70 mb-2">或直接输入文字：</label>
+                    <label class="block text-xs font-medium text-black/70 mb-2">输入文字（语音将自动识别为文字）：</label>
                     <textarea id="free-transcript" class="textarea flex-1" placeholder="在这里输入你的即兴表达..."></textarea>
                 </div>
 
@@ -1117,14 +1175,26 @@ const app = {
         if (!fbEl) return;
 
         fbEl.innerHTML = `
-            <div class="feedback-bubble mb-3">【建议】${fb.suggestion}</div>
-            <div class="card bg-black/5">
+            <div class="feedback-bubble mb-3">${fb.suggestion}</div>
+            <div class="card free-report-card">
                 <h4 class="font-bold mb-3 text-primary">详细报告</h4>
                 <div class="space-y-2 text-sm mb-4">
-                    <div class="flex justify-between items-center py-2 border-b border-black/5"><span class="text-black/60">主题相关</span><span class="font-medium text-primary">${fb.metrics_display.relevance_feedback}</span></div>
-                    <div class="flex justify-between items-center py-2 border-b border-black/5"><span class="text-black/60">结构框架</span><span class="font-medium text-primary">${fb.metrics_display.structure_feedback}</span></div>
-                    <div class="flex justify-between items-center py-2 border-b border-black/5"><span class="text-black/60">观点密度</span><span class="font-medium text-primary">${fb.metrics_display.density_feedback}</span></div>
-                    <div class="flex justify-between items-center py-2"><span class="text-black/60">语言习惯</span><span class="font-medium text-primary">${fb.metrics_display.habit_feedback}</span></div>
+                    <div class="flex justify-between items-center py-2 border-b border-black/5">
+                        <span class="metric-label text-black/60">${this.formatMetricLabel('主题相关')}</span>
+                        <span class="font-medium text-primary text-right flex-1 ml-2">${fb.metrics_display.relevance_feedback}</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-black/5">
+                        <span class="metric-label text-black/60">${this.formatMetricLabel('结构框架')}</span>
+                        <span class="font-medium text-primary text-right flex-1 ml-2">${fb.metrics_display.structure_feedback}</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-black/5">
+                        <span class="metric-label text-black/60">${this.formatMetricLabel('观点密度')}</span>
+                        <span class="font-medium text-primary text-right flex-1 ml-2">${fb.metrics_display.density_feedback}</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2">
+                        <span class="metric-label text-black/60">${this.formatMetricLabel('语言习惯')}</span>
+                        <span class="font-medium text-primary text-right flex-1 ml-2">${fb.metrics_display.habit_feedback}</span>
+                    </div>
                 </div>
                 <div class="p-3 bg-white rounded-lg text-sm text-black/70 leading-relaxed">
                     <strong class="text-primary">润色版：</strong>${fb.rewrite}

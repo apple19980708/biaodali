@@ -206,14 +206,14 @@ def feedback_free(transcript, topic, method):
         struct_feedback = "框架运用到位，骨架清晰"
         struct_score = random.randint(7, 10)
     else:
-        struct_feedback = f"推荐训练：下次试试{method or 'STAR'}框架，观点会更扎实"
+        struct_feedback = f"下次试试{method or 'STAR'}框架，观点会更扎实"
         struct_score = random.randint(4, 7)
 
     if len(transcript) > 80:
         density_feedback = "观点密度高，很有说服力"
         density_score = random.randint(7, 10)
     else:
-        density_feedback = "推荐训练：试试论点+案例结构，内容会更丰盈"
+        density_feedback = "试试论点+案例结构，内容会更丰盈"
         density_score = random.randint(4, 6)
 
     if fillers == 0:
@@ -257,6 +257,61 @@ def feedback_free(transcript, topic, method):
         'comfort_message': comfort,
         'metrics_display': metrics_display,
         'metrics_backend': metrics
+    }
+
+
+def evaluate_drag_analysis(user_mappings, article):
+    """Compare user's highlighted text with the correct structure slots."""
+    method = article.get('method', 'STAR')
+    if method == 'STAR':
+        keys = {
+            'S': article.get('star_s', ''),
+            'T': article.get('star_t', ''),
+            'A': article.get('star_a', ''),
+            'R': article.get('star_r', '')
+        }
+    else:
+        keys = {
+            'P': article.get('prep_p', ''),
+            'R': article.get('prep_r', ''),
+            'E': article.get('prep_e', ''),
+            'P2': article.get('prep_p2', '')
+        }
+
+    threshold = 0.25
+    slots = {}
+    all_correct = True
+
+    for slot, correct_text in keys.items():
+        user_texts = user_mappings.get(slot, [])
+        if not user_texts or not correct_text:
+            slots[slot] = {
+                'correct': False,
+                'user': '',
+                'correct_text': correct_text
+            }
+            all_correct = False
+            continue
+
+        user_combined = '。'.join(user_texts)
+        score = similarity(user_combined, correct_text)
+        contains = correct_text in user_combined or user_combined in correct_text
+        is_correct = score >= threshold or contains
+
+        slots[slot] = {
+            'correct': is_correct,
+            'score': round(score, 2),
+            'user': user_combined[:80],
+            'correct_text': correct_text
+        }
+        if not is_correct:
+            all_correct = False
+
+    return {
+        'success': all_correct,
+        'slots': slots,
+        'correct_texts': {slot: info['correct_text'] for slot, info in slots.items()},
+        'message': '结构分析正确，进入下一环节' if all_correct else '部分结构划分与原文有出入，已标出正确结构供对照'
     }
 
 

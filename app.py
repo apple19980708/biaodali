@@ -197,12 +197,34 @@ def submit_drag():
     if not cycle:
         return jsonify({'error': 'No active cycle'}), 400
 
+    progress = get_or_create_daily_progress('U10086', cycle['id'], cycle['current_day'])
+    article = get_article_by_id(progress['article_id']) if progress['article_id'] else get_article_for_method(cycle['method'])
+
+    from ai_service import evaluate_drag_analysis
+    evaluation = evaluate_drag_analysis(mappings, article)
+
     save_drag_analysis('U10086', cycle['id'], cycle['current_day'], mappings)
+
+    if evaluation['success']:
+        update_daily_progress('U10086', cycle['id'], cycle['current_day'], {
+            'drag_completed': 1
+        })
+        update_user_state('U10086', {'state': 'qa'})
+
+    return jsonify(evaluation)
+
+
+@app.route('/api/drag/force-complete', methods=['POST'])
+def force_complete_drag():
+    """Allow the user to proceed after reviewing the correct structure hints."""
+    cycle = get_active_cycle('U10086')
+    if not cycle:
+        return jsonify({'error': 'No active cycle'}), 400
+
     update_daily_progress('U10086', cycle['id'], cycle['current_day'], {
         'drag_completed': 1
     })
     update_user_state('U10086', {'state': 'qa'})
-
     return jsonify({'success': True})
 
 
