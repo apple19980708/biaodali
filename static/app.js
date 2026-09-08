@@ -9,6 +9,9 @@ const app = {
 
     async init() {
         await this.loadUser();
+        // Always land on the home page when the app first loads;
+        // users can continue training from there.
+        this.state = 'home';
         this.render();
     },
 
@@ -61,6 +64,9 @@ const app = {
     render() {
         const main = document.getElementById('main');
         main.innerHTML = '';
+
+        // Keep footer in sync with current cycle state
+        this.updateFooter();
 
         switch (this.state) {
             case 'home':
@@ -351,9 +357,9 @@ const app = {
                     </div>
                     <div class="flex items-center gap-2 text-xs text-black/50 mb-2">
                         <span class="badge badge-green">${this.cycle.method}</span>
-                        <span>约 ${this.article.content.length} 字</span>
-                        <span class="text-black/40">· 对文章文字划线，选择对应的部分</span>
+                        <span>${this.article.content.length} 字</span>
                     </div>
+                    <p class="text-xs text-black/40 mb-2">对文章文字划线，选择对应的部分</p>
                     <div id="article-text" class="article-content select-text">
                         ${this.article.content}
                     </div>
@@ -603,18 +609,20 @@ const app = {
         // Clear the user's incorrect highlights first
         this.resetHighlights();
 
-        // Highlight the correct text spans inside the article
-        const articleText = document.getElementById('article-text');
-        if (articleText && correctTexts) {
-            let html = articleText.innerHTML;
-            Object.entries(correctTexts).forEach(([slot, text]) => {
-                if (!text || text.length < 2) return;
-                const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(escaped, 'g');
-                html = html.replace(regex, `<span class="hl-correct hl-correct-${slot.toLowerCase()}">$&</span>`);
-            });
-            articleText.innerHTML = html;
-        }
+        // Highlight the correct text spans inside the article using plain-text positions
+        this.highlightCorrectSpans(correctTexts);
+
+        // Also show the correct texts as chips inside each analysis section
+        Object.entries(correctTexts).forEach(([slot, text]) => {
+            if (!text) return;
+            const contentEl = document.getElementById(`content-${slot}`);
+            if (!contentEl) return;
+            contentEl.innerHTML = `
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                    参考：${text}
+                </span>
+            `;
+        });
 
         // Show correction banner
         let banner = document.getElementById('drag-correction-banner');
@@ -643,6 +651,88 @@ const app = {
                 this.render();
             };
         }
+    },
+
+    normalizeText(text) {
+        return text.replace(/\s+/g, ' ').trim();
+    },
+
+    highlightCorrectSpans(correctTexts) {
+        const articleText = document.getElementById('article-text');
+        if (!articleText || !correctTexts) return;
+
+        const plainText = articleText.textContent;
+        const normalizedPlain = this.normalizeText(plainText);
+        const spans = [];
+
+        Object.entries(correctTexts).forEach(([slot, text]) => {
+            if (!text || text.length < 2) return;
+            const normalizedTarget = this.normalizeText(text);
+            if (!normalizedTarget) return;
+
+            // Try to find the target in the normalized plain text
+            let idx = normalizedPlain.indexOf(normalizedTarget);
+            if (idx === -1) {
+                // Fallback: try shorter leading substring
+                const half = Math.floor(normalizedTarget.length / 2);
+                const shortTarget = normalizedTarget.slice(0, Math.max(half, 8));
+                idx = normalizedPlain.indexOf(shortTarget);
+            }
+            if (idx === -1) return;
+
+            // Map normalized position back to raw text position by counting non-whitespace chars
+            let rawStart = 0;
+            let normCount = 0;
+            for (let i = 0; i < plainText.length && normCount < idx; i++) {
+                if (/\S/.test(plainText[i])) {
+                    normCount++;
+                }
+                rawStart++;
+            }
+
+            let rawEnd = rawStart;
+            let targetNormCount = 0;
+            const targetLen = normalizedTarget.length;
+            for (let i = rawStart; i < plainText.length && targetNormCount < targetLen; i++) {
+                if (/\S/.test(plainText[i])) {
+                    targetNormCount++;
+                }
+                rawEnd++;
+            }
+
+            spans.push({ start: rawStart, end: rawEnd, slot });
+        });
+
+        if (spans.length === 0) return;
+
+        // Sort by start position; prefer longer spans when overlaps occur
+        spans.sort((a, b) => a.start - b.start || b.end - a.end);
+        const merged = [];
+        for (const span of spans) {
+            if (merged.length === 0 || span.start >= merged[merged.length - 1].end) {
+                merged.push(span);
+            } else if (span.end > merged[merged.length - 1].end) {
+                merged[merged.length - 1].end = span.end;
+                merged[merged.length - 1].slot = span.slot; // last one wins in overlap
+            }
+        }
+
+        // Rebuild HTML by wrapping text ranges
+        let html = '';
+        let lastEnd = 0;
+        for (const span of merged) {
+            html += this.escapeHtml(plainText.slice(lastEnd, span.start));
+            html += `<span class="hl-correct hl-correct-${span.slot.toLowerCase()}">${this.escapeHtml(plainText.slice(span.start, span.end))}</span>`;
+            lastEnd = span.end;
+        }
+        html += this.escapeHtml(plainText.slice(lastEnd));
+        articleText.innerHTML = html;
+    },
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     },
 
     async swapArticle() {
@@ -1215,11 +1305,24 @@ const app = {
     },
 
     // -------------------- Day Complete --------------------
+    updateFooter() {
+        const footer = document.getElementById('footer-nav');
+        const footerDay = document.getElementById('footer-day');
+        if (this.cycle && this.state !== 'home') {
+            footer?.classList.remove('hidden');
+            if (footerDay) footerDay.textContent = this.cycle.current_day;
+        } else {
+            footer?.classList.add('hidden');
+        }
+    },
+
     renderDayComplete(container) {
         const totalDays = this.cycle ? this.cycle.total_days : 4;
         const currentDay = this.cycle ? this.cycle.current_day : 1;
         const isLastDay = currentDay >= totalDays;
-        const progress = Math.round((currentDay / totalDays) * 100);
+        // Show how many days have been completed, not the current position
+        const completedDay = isLastDay ? totalDays : Math.max(0, currentDay - 1);
+        const progress = Math.round((completedDay / totalDays) * 100);
 
         container.innerHTML = `
             <div class="fade-in text-center py-8">
@@ -1228,7 +1331,7 @@ const app = {
                 <p class="text-black/60 mb-8 px-4">
                     ${isLastDay
                         ? '你已经完成了当前方法的全部训练，可以解锁新方法，也可以再巩固一篇。'
-                        : `已完成第 ${currentDay}/${totalDays} 篇，继续加油！`}
+                        : `已完成 ${completedDay}/${totalDays} 篇，继续加油！`}
                 </p>
 
                 <div class="card mb-6 text-left">
@@ -1237,7 +1340,7 @@ const app = {
                         <div class="progress-fill" style="width: ${progress}%"></div>
                     </div>
                     <div class="flex justify-between text-sm text-black/60">
-                        <span>第 ${currentDay} 篇</span>
+                        <span>已完成 ${completedDay}/${totalDays} 篇</span>
                         <span>${progress}%</span>
                     </div>
                 </div>
