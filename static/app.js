@@ -37,7 +37,7 @@ const app = {
             if (this.cycle && this.state !== 'home') {
                 if (footer) footer.classList.remove('hidden');
                 const footerDay = document.getElementById('footer-day');
-                if (footerDay) footerDay.textContent = this.cycle.current_day;
+                if (footerDay) footerDay.textContent = this.getCurrentArticleNumber();
             } else {
                 if (footer) footer.classList.add('hidden');
             }
@@ -160,7 +160,7 @@ const app = {
                     <div class="flex items-center justify-between">
                         <div>
                             <div class="text-xs text-muted">当前进行中的训练</div>
-                            <div class="font-bold text-primary text-sm">${cycle.method} 法则 · 第 ${this.getCurrentArticleNumber()} 篇</div>
+                            <div class="font-bold text-primary text-sm">${cycle.method} 法则 · 第 ${cycle.current_article_number || this.getCurrentArticleNumber()} 篇</div>
                         </div>
                         <button onclick="app.continueTraining()" class="btn-primary text-xs py-1.5 px-3">继续训练</button>
                     </div>
