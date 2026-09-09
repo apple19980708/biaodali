@@ -265,17 +265,33 @@ def _extract_best_span(content, summary, max_sentences=3):
     if not content or not summary:
         return summary
 
-    sentences = re.split(r'(?<=[。！？])\s*', content)
-    sentences = [s.strip() for s in sentences if s.strip()]
-    if not sentences:
+    # Build sentence spans with their original positions so we can return the
+    # exact original text (preserving whitespace and punctuation) instead of
+    # re-joining with extra separators.
+    sentence_spans = []
+    start = 0
+    for m in re.finditer(r'[。！？]', content):
+        end = m.end()
+        sentence = content[start:end].strip()
+        if sentence:
+            sentence_spans.append((start, end, sentence))
+        start = end
+    if start < len(content):
+        sentence = content[start:].strip()
+        if sentence:
+            sentence_spans.append((start, len(content), sentence))
+
+    if not sentence_spans:
         return summary
 
     best_span = summary
     best_score = 0.0
 
-    for n in range(1, min(max_sentences + 1, len(sentences) + 1)):
-        for i in range(len(sentences) - n + 1):
-            span = '。'.join(sentences[i:i + n])
+    for n in range(1, min(max_sentences + 1, len(sentence_spans) + 1)):
+        for i in range(len(sentence_spans) - n + 1):
+            span_start = sentence_spans[i][0]
+            span_end = sentence_spans[i + n - 1][1]
+            span = content[span_start:span_end].strip()
             score = similarity(span, summary)
             if score > best_score:
                 best_score = score

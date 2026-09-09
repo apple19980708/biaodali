@@ -61,6 +61,12 @@ const app = {
         return labels[state] || state;
     },
 
+    getCurrentArticleNumber() {
+        if (!this.cycle) return 1;
+        if (this.cycle.current_article_number) return this.cycle.current_article_number;
+        return (this.cycle.completed_articles_count || 0) + 1;
+    },
+
     render() {
         const main = document.getElementById('main');
         main.innerHTML = '';
@@ -154,7 +160,7 @@ const app = {
                     <div class="flex items-center justify-between">
                         <div>
                             <div class="text-xs text-muted">当前进行中的训练</div>
-                            <div class="font-bold text-primary text-sm">${cycle.method} 法则 · 第 ${cycle.current_day} 篇</div>
+                            <div class="font-bold text-primary text-sm">${cycle.method} 法则 · 第 ${this.getCurrentArticleNumber()} 篇</div>
                         </div>
                         <button onclick="app.continueTraining()" class="btn-primary text-xs py-1.5 px-3">继续训练</button>
                     </div>
@@ -350,7 +356,7 @@ const app = {
                 <div class="card">
                     <div class="flex justify-between items-start mb-4">
                         <div>
-                            <div class="badge badge-accent mb-2">第 ${this.cycle.current_day} 篇 · 内容实战</div>
+                            <div class="badge badge-accent mb-2">第 ${this.getCurrentArticleNumber()} 篇 · 内容实战</div>
                             <h2 class="text-xl font-bold text-primary leading-tight">${this.article.title}</h2>
                         </div>
                         <button onclick="app.swapArticle()" class="btn-outline shrink-0 ml-3">换一篇</button>
@@ -620,17 +626,20 @@ const app = {
         // Clear only incorrect highlights; keep correct user highlights
         this.resetHighlightsForSlots(Object.keys(incorrectSlots));
 
-        // Highlight the correct text spans inside the article using plain-text positions
-        this.highlightCorrectSpans(incorrectSlots);
+        // Highlight the correct text spans inside the article using plain-text positions.
+        // The returned map contains the exact text that was highlighted in the article.
+        const highlightedTexts = this.highlightCorrectSpans(incorrectSlots);
 
-        // For incorrect slots, show the correct text as a chip without "参考：" prefix
+        // For incorrect slots, show the correct text as a chip without "参考：" prefix.
+        // Use the actually highlighted text so the chip always matches the article marking.
         Object.entries(incorrectSlots).forEach(([slot, text]) => {
             if (!text) return;
             const contentEl = document.getElementById(`content-${slot}`);
             if (!contentEl) return;
+            const displayText = highlightedTexts[slot] || text;
             contentEl.innerHTML = `
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
-                    ${text}
+                    ${displayText}
                 </span>
             `;
         });
@@ -682,11 +691,12 @@ const app = {
 
     highlightCorrectSpans(correctTexts) {
         const articleText = document.getElementById('article-text');
-        if (!articleText || !correctTexts) return;
+        if (!articleText || !correctTexts) return {};
 
         const plainText = articleText.textContent;
         const normalizedPlain = this.normalizeText(plainText);
         const spans = [];
+        const highlighted = {};
 
         Object.entries(correctTexts).forEach(([slot, text]) => {
             if (!text || text.length < 2) return;
@@ -726,7 +736,7 @@ const app = {
             spans.push({ start: rawStart, end: rawEnd, slot });
         });
 
-        if (spans.length === 0) return;
+        if (spans.length === 0) return highlighted;
 
         // Sort by start position; prefer longer spans when overlaps occur
         spans.sort((a, b) => a.start - b.start || b.end - a.end);
@@ -745,11 +755,15 @@ const app = {
         let lastEnd = 0;
         for (const span of merged) {
             html += this.escapeHtml(plainText.slice(lastEnd, span.start));
-            html += `<span class="hl-correct hl-correct-${span.slot.toLowerCase()}">${this.escapeHtml(plainText.slice(span.start, span.end))}</span>`;
+            const highlightedText = plainText.slice(span.start, span.end);
+            html += `<span class="hl-correct hl-correct-${span.slot.toLowerCase()}">${this.escapeHtml(highlightedText)}</span>`;
+            highlighted[span.slot] = highlightedText;
             lastEnd = span.end;
         }
         html += this.escapeHtml(plainText.slice(lastEnd));
         articleText.innerHTML = html;
+
+        return highlighted;
     },
 
     escapeHtml(text) {
@@ -1337,8 +1351,7 @@ const app = {
         if (this.cycle && this.state !== 'home') {
             footer?.classList.remove('hidden');
             // Show current article number in sequence (1-based)
-            const currentArticle = (this.cycle.completed_articles_count || 0) + 1;
-            if (footerDay) footerDay.textContent = currentArticle;
+            if (footerDay) footerDay.textContent = this.getCurrentArticleNumber();
         } else {
             footer?.classList.add('hidden');
         }

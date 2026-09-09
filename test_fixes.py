@@ -152,9 +152,44 @@ def test_extract_best_span():
     print('  PASSED\n')
 
 
+def test_extract_best_span_multi_sentence():
+    print('--- Test: multi-sentence span preserves original text ---')
+    content = '第一段关于背景。第二段关于任务。第三段关于行动。第四段关于结果。'
+    summary = '第二段关于任务。第三段关于行动。'
+    span = _extract_best_span(content, summary)
+    assert span == '第二段关于任务。第三段关于行动。', f"Expected '第二段关于任务。第三段关于行动。', got '{span}'"
+    assert '。。' not in span, f"Span should not contain duplicated punctuation, got '{span}'"
+    print(f"  Summary '{summary}' -> span '{span}'")
+    print('  PASSED\n')
+
+
+def test_current_article_number():
+    print('--- Test: current_article_number field ---')
+    setup()
+    user_id = 'U10086'
+    get_or_create_user(user_id)
+
+    cycle_id = create_cycle(user_id, 'STAR', 4)
+    cycle = get_active_cycle(user_id)
+    assert cycle['current_article_number'] == 1, f"Expected 1, got {cycle['current_article_number']}"
+    print(f"  Before any completion: current_article_number={cycle['current_article_number']}")
+
+    get_or_create_daily_progress(user_id, cycle_id, 1)
+    update_daily_progress(user_id, cycle_id, 1, {
+        'article_id': 1, 'free_completed': 1, 'completed': 1
+    })
+
+    cycle = get_active_cycle(user_id)
+    assert cycle['current_article_number'] == 2, f"Expected 2, got {cycle['current_article_number']}"
+    print(f"  After day 1 complete: current_article_number={cycle['current_article_number']}")
+    print('  PASSED\n')
+
+
 if __name__ == '__main__':
     test_count_accuracy()
     test_footer_article_number()
     test_extract_best_span()
+    test_extract_best_span_multi_sentence()
     test_drag_reference_is_original_span()
+    test_current_article_number()
     print('All tests passed!')
