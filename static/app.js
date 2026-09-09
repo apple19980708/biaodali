@@ -601,25 +601,36 @@ const app = {
             await this.loadUser();
             this.render();
         } else {
-            this.showDragCorrections(data.correct_texts, data.message);
+            this.showDragCorrections(data.slots || {}, data.message);
         }
     },
 
-    showDragCorrections(correctTexts, message) {
-        // Clear the user's incorrect highlights first
-        this.resetHighlights();
+    showDragCorrections(slots, message) {
+        // Separate correct (>=90%) and incorrect slots
+        const incorrectSlots = {};
+        const correctSlots = [];
+        Object.entries(slots).forEach(([slot, info]) => {
+            if (info && info.correct) {
+                correctSlots.push(slot);
+            } else {
+                incorrectSlots[slot] = info ? info.correct_text : '';
+            }
+        });
+
+        // Clear only incorrect highlights; keep correct user highlights
+        this.resetHighlightsForSlots(Object.keys(incorrectSlots));
 
         // Highlight the correct text spans inside the article using plain-text positions
-        this.highlightCorrectSpans(correctTexts);
+        this.highlightCorrectSpans(incorrectSlots);
 
-        // Also show the correct texts as chips inside each analysis section
-        Object.entries(correctTexts).forEach(([slot, text]) => {
+        // For incorrect slots, show the correct text as a chip without "参考：" prefix
+        Object.entries(incorrectSlots).forEach(([slot, text]) => {
             if (!text) return;
             const contentEl = document.getElementById(`content-${slot}`);
             if (!contentEl) return;
             contentEl.innerHTML = `
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
-                    参考：${text}
+                    ${text}
                 </span>
             `;
         });
@@ -651,6 +662,18 @@ const app = {
                 this.render();
             };
         }
+    },
+
+    resetHighlightsForSlots(slotsToReset) {
+        const articleText = document.getElementById('article-text');
+        if (!articleText || slotsToReset.length === 0) return;
+        const classes = slotsToReset.map(s => `hl-${s}`);
+        const spans = articleText.querySelectorAll(classes.map(c => `span.${c}`).join(', '));
+        spans.forEach(span => {
+            const parent = span.parentNode;
+            parent.replaceChild(document.createTextNode(span.textContent), span);
+            parent.normalize();
+        });
     },
 
     normalizeText(text) {
@@ -1310,7 +1333,9 @@ const app = {
         const footerDay = document.getElementById('footer-day');
         if (this.cycle && this.state !== 'home') {
             footer?.classList.remove('hidden');
-            if (footerDay) footerDay.textContent = this.cycle.current_day;
+            // Show current article number in sequence (1-based)
+            const currentArticle = (this.cycle.completed_articles_count || 0) + 1;
+            if (footerDay) footerDay.textContent = currentArticle;
         } else {
             footer?.classList.add('hidden');
         }
@@ -1320,9 +1345,9 @@ const app = {
         const totalDays = this.cycle ? this.cycle.total_days : 4;
         const currentDay = this.cycle ? this.cycle.current_day : 1;
         const isLastDay = currentDay >= totalDays;
-        // Show how many days have been completed, not the current position
-        const completedDay = isLastDay ? totalDays : Math.max(0, currentDay - 1);
-        const progress = Math.round((completedDay / totalDays) * 100);
+        // Use the actual count of completed articles for display
+        const completedCount = this.cycle ? (this.cycle.completed_articles_count || 0) : 0;
+        const progress = Math.min(100, Math.round((completedCount / totalDays) * 100));
 
         container.innerHTML = `
             <div class="fade-in text-center py-8">
@@ -1331,7 +1356,7 @@ const app = {
                 <p class="text-black/60 mb-8 px-4">
                     ${isLastDay
                         ? '你已经完成了当前方法的全部训练，可以解锁新方法，也可以再巩固一篇。'
-                        : `已完成 ${completedDay}/${totalDays} 篇，继续加油！`}
+                        : `已完成 ${completedCount}/${totalDays} 篇，继续加油！`}
                 </p>
 
                 <div class="card mb-6 text-left">
@@ -1340,7 +1365,7 @@ const app = {
                         <div class="progress-fill" style="width: ${progress}%"></div>
                     </div>
                     <div class="flex justify-between text-sm text-black/60">
-                        <span>已完成 ${completedDay}/${totalDays} 篇</span>
+                        <span>已完成 ${completedCount}/${totalDays} 篇</span>
                         <span>${progress}%</span>
                     </div>
                 </div>

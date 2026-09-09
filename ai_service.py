@@ -278,7 +278,7 @@ def evaluate_drag_analysis(user_mappings, article):
             'P2': article.get('prep_p2', '')
         }
 
-    threshold = 0.25
+    threshold = 0.90
     slots = {}
     all_correct = True
 

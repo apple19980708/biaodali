@@ -4,10 +4,12 @@ import json
 from datetime import datetime
 
 from db import (
-    init_db, seed_data, get_or_create_user, update_user_state,
-    get_active_cycle, create_cycle, complete_cycle,
-    get_or_create_daily_progress, update_daily_progress, reset_daily_progress,
+    init_db, seed_data, get_or_create_user, get_active_cycle,
+    create_cycle, complete_cycle, get_or_create_daily_progress, update_daily_progress,
+    update_user_state, reset_daily_progress,
     get_article_for_method, get_article_by_id,
+    get_cycle_used_article_ids, add_cycle_used_article_id,
+    increment_completed_articles_count,
     save_drag_analysis, save_recording,
     checkin_today, get_checkin_dates, get_streak,
     reset_user_progress
@@ -153,13 +155,18 @@ def api_article():
 
     progress = get_or_create_daily_progress('U10086', cycle['id'], cycle['current_day'])
 
-    # If no article assigned, pick one
+    # If no article assigned, pick one that hasn't been used in this cycle
     if not progress['article_id']:
-        article = get_article_for_method(cycle['method'])
+        used_ids = get_cycle_used_article_ids(cycle['id'])
+        article = get_article_for_method(cycle['method'], exclude_ids=used_ids)
+        if not article and used_ids:
+            # All articles used; reset used list for this cycle and pick again
+            article = get_article_for_method(cycle['method'])
         if article:
             update_daily_progress('U10086', cycle['id'], cycle['current_day'], {
                 'article_id': article['id']
             })
+            add_cycle_used_article_id(cycle['id'], article['id'])
         else:
             return jsonify({'error': 'No article found'}), 404
     else:
@@ -178,12 +185,17 @@ def swap_article():
         return jsonify({'error': 'No active cycle'}), 400
 
     progress = get_or_create_daily_progress('U10086', cycle['id'], cycle['current_day'])
-    exclude_ids = [progress['article_id']] if progress['article_id'] else []
-    article = get_article_for_method(cycle['method'], exclude_ids=exclude_ids)
+    used_ids = get_cycle_used_article_ids(cycle['id'])
+    current_id = progress['article_id']
+    article = get_article_for_method(cycle['method'], exclude_ids=used_ids)
+    if not article and current_id:
+        # Fallback: allow any article except current one
+        article = get_article_for_method(cycle['method'], exclude_ids=[current_id])
     if article:
         update_daily_progress('U10086', cycle['id'], cycle['current_day'], {
             'article_id': article['id']
         })
+        add_cycle_used_article_id(cycle['id'], article['id'])
         return jsonify({'article': article})
     return jsonify({'error': 'No alternative article'}), 404
 
@@ -305,6 +317,9 @@ def free_feedback():
         'completed': 1
     })
 
+    # Count this article as completed
+    increment_completed_articles_count(cycle['id'])
+
     # Auto check-in when daily training is completed
     checkin_today('U10086')
 
@@ -340,6 +355,16 @@ def complete_day():
     conn.close()
 
     get_or_create_daily_progress('U10086', cycle['id'], next_day)
+
+    # Pre-assign a new article for the next day, excluding articles already used in this cycle
+    used_ids = get_cycle_used_article_ids(cycle['id'])
+    article = get_article_for_method(cycle['method'], exclude_ids=used_ids)
+    if article:
+        update_daily_progress('U10086', cycle['id'], next_day, {
+            'article_id': article['id']
+        })
+        add_cycle_used_article_id(cycle['id'], article['id'])
+
     update_user_state('U10086', {
         'cycle_day': next_day,
         'state': 'article_reading'
@@ -361,18 +386,17 @@ def retry_day():
 
     reset_daily_progress('U10086', cycle['id'], cycle['current_day'])
 
-    # Pre-assign a different article for this retry
-    article = get_article_for_method(
-        cycle['method'],
-        exclude_ids=[old_article_id] if old_article_id else []
-    )
+    # Pre-assign a different article for this retry, excluding all already used in this cycle
+    used_ids = get_cycle_used_article_ids(cycle['id'])
+    article = get_article_for_method(cycle['method'], exclude_ids=used_ids)
     if not article and old_article_id:
         # Fallback if there is only one article available
-        article = get_article_for_method(cycle['method'])
+        article = get_article_for_method(cycle['method'], exclude_ids=[old_article_id])
     if article:
         update_daily_progress('U10086', cycle['id'], cycle['current_day'], {
             'article_id': article['id']
         })
+        add_cycle_used_article_id(cycle['id'], article['id'])
 
     update_user_state('U10086', {'state': 'article_reading'})
     return jsonify({'success': True})
@@ -393,6 +417,7 @@ def retry_same_method():
     cycle_id = create_cycle('U10086', cycle['method'], cycle['total_days'])
     get_or_create_daily_progress('U10086', cycle_id, 1)
 
+    # New cycle has fresh used list; just exclude the last article if possible
     article = get_article_for_method(
         cycle['method'],
         exclude_ids=[old_article_id] if old_article_id else []
@@ -403,6 +428,7 @@ def retry_same_method():
         update_daily_progress('U10086', cycle_id, 1, {
             'article_id': article['id']
         })
+        add_cycle_used_article_id(cycle_id, article['id'])
 
     update_user_state('U10086', {
         'current_method': cycle['method'],
