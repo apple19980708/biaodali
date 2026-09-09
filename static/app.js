@@ -1284,6 +1284,9 @@ const app = {
 
         const data = await res.json();
         const fb = data.result;
+        if (data.cycle) {
+            this.cycle = data.cycle;
+        }
         const fbEl = document.getElementById('free-feedback');
         if (!fbEl) return;
 

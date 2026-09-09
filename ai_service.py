@@ -260,9 +260,37 @@ def feedback_free(transcript, topic, method):
     }
 
 
+def _extract_best_span(content, summary, max_sentences=3):
+    """Find the contiguous original sentence(s) in content that best match the summary."""
+    if not content or not summary:
+        return summary
+
+    sentences = re.split(r'(?<=[。！？])\s*', content)
+    sentences = [s.strip() for s in sentences if s.strip()]
+    if not sentences:
+        return summary
+
+    best_span = summary
+    best_score = 0.0
+
+    for n in range(1, min(max_sentences + 1, len(sentences) + 1)):
+        for i in range(len(sentences) - n + 1):
+            span = '。'.join(sentences[i:i + n])
+            score = similarity(span, summary)
+            if score > best_score:
+                best_score = score
+                best_span = span
+
+    # Fall back to the summary itself if no reasonable original span is found
+    if best_score < 0.05:
+        return summary
+    return best_span
+
+
 def evaluate_drag_analysis(user_mappings, article):
     """Compare user's highlighted text with the correct structure slots."""
     method = article.get('method', 'STAR')
+    content = article.get('content', '')
     if method == 'STAR':
         keys = {
             'S': article.get('star_s', ''),
@@ -278,11 +306,14 @@ def evaluate_drag_analysis(user_mappings, article):
             'P2': article.get('prep_p2', '')
         }
 
+    # Use original article spans as references, not the condensed summaries
+    correct_texts = {slot: _extract_best_span(content, summary) for slot, summary in keys.items()}
+
     threshold = 0.90
     slots = {}
     all_correct = True
 
-    for slot, correct_text in keys.items():
+    for slot, correct_text in correct_texts.items():
         user_texts = user_mappings.get(slot, [])
         if not user_texts or not correct_text:
             slots[slot] = {

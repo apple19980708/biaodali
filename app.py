@@ -323,7 +323,8 @@ def free_feedback():
     # Auto check-in when daily training is completed
     checkin_today('U10086')
 
-    return jsonify({'result': result})
+    # Return fresh cycle so the completion page shows the accurate article count
+    return jsonify({'result': result, 'cycle': get_active_cycle('U10086')})
 
 
 # -------------------- API: Daily Completion & Next Day --------------------

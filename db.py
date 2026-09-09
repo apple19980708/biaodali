@@ -319,7 +319,12 @@ def get_active_cycle(user_id):
     cursor.execute('SELECT * FROM cycles WHERE user_id = ? AND status = ? ORDER BY id DESC LIMIT 1', (user_id, 'active'))
     row = cursor.fetchone()
     conn.close()
-    return dict(row) if row else None
+    if not row:
+        return None
+    cycle = dict(row)
+    # Keep the counter in sync with actual daily_progress so display never drifts
+    cycle['completed_articles_count'] = sync_completed_articles_count(cycle['id'])
+    return cycle
 
 
 def create_cycle(user_id, method, total_days=4):
@@ -422,6 +427,30 @@ def increment_completed_articles_count(cycle_id):
     cursor.execute('UPDATE cycles SET completed_articles_count = completed_articles_count + 1 WHERE id = ?', (cycle_id,))
     conn.commit()
     conn.close()
+
+
+def get_completed_articles_count(cycle_id):
+    """Count distinct days marked as completed in the current cycle."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT COUNT(DISTINCT day) FROM daily_progress
+        WHERE cycle_id = ? AND completed = 1
+    ''', (cycle_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else 0
+
+
+def sync_completed_articles_count(cycle_id):
+    """Sync cycles.completed_articles_count with actual completed days."""
+    actual = get_completed_articles_count(cycle_id)
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE cycles SET completed_articles_count = ? WHERE id = ?', (actual, cycle_id))
+    conn.commit()
+    conn.close()
+    return actual
 
 
 def get_article_for_method(method, exclude_ids=None):
