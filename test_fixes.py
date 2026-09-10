@@ -152,14 +152,43 @@ def test_extract_best_span():
     print('  PASSED\n')
 
 
-def test_extract_best_span_multi_sentence():
-    print('--- Test: multi-sentence span preserves original text ---')
+def test_extract_best_span_single_sentence_only():
+    print('--- Test: reference is a single original sentence ---')
     content = '第一段关于背景。第二段关于任务。第三段关于行动。第四段关于结果。'
     summary = '第二段关于任务。第三段关于行动。'
     span = _extract_best_span(content, summary)
-    assert span == '第二段关于任务。第三段关于行动。', f"Expected '第二段关于任务。第三段关于行动。', got '{span}'"
-    assert '。。' not in span, f"Span should not contain duplicated punctuation, got '{span}'"
+    # Must return exactly one sentence from the article
+    assert span in content, f"Span must come from content, got '{span}'"
+    assert span.count('。') <= 1, f"Span should be a single sentence, got '{span}'"
     print(f"  Summary '{summary}' -> span '{span}'")
+    print('  PASSED\n')
+
+
+def test_full_completion_flow_article_number():
+    print('--- Test: next article shows x+1 after completing article x ---')
+    setup()
+    user_id = 'U10086'
+    get_or_create_user(user_id)
+
+    cycle_id = create_cycle(user_id, 'STAR', 4)
+    get_or_create_daily_progress(user_id, cycle_id, 1)
+
+    # Simulate completing article 1 (free output)
+    update_daily_progress(user_id, cycle_id, 1, {
+        'article_id': 1, 'free_completed': 1, 'completed': 1
+    })
+
+    # Move to day 2
+    from app import app
+    with app.test_client() as client:
+        client.post('/api/day/complete')
+        resp = client.get('/api/article')
+        data = resp.get_json()
+        cycle = data['cycle']
+        assert cycle['completed_articles_count'] == 1, f"Expected 1, got {cycle['completed_articles_count']}"
+        assert cycle['current_article_number'] == 2, f"Expected 2, got {cycle['current_article_number']}"
+        assert cycle['current_day'] == 2, f"Expected 2, got {cycle['current_day']}"
+        print(f"  After day 1 complete: article_number={cycle['current_article_number']}, day={cycle['current_day']}")
     print('  PASSED\n')
 
 
@@ -189,7 +218,8 @@ if __name__ == '__main__':
     test_count_accuracy()
     test_footer_article_number()
     test_extract_best_span()
-    test_extract_best_span_multi_sentence()
+    test_extract_best_span_single_sentence_only()
     test_drag_reference_is_original_span()
     test_current_article_number()
+    test_full_completion_flow_article_number()
     print('All tests passed!')

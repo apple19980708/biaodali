@@ -260,14 +260,18 @@ def feedback_free(transcript, topic, method):
     }
 
 
-def _extract_best_span(content, summary, max_sentences=3):
-    """Find the contiguous original sentence(s) in content that best match the summary."""
+def _extract_best_span(content, summary, max_sentences=1):
+    """Find the single original sentence in content that best matches the summary.
+
+    We deliberately return only one sentence so the reference shown to the user is a
+    complete, contiguous sentence from the article rather than a span that jumps over
+    several sentences.
+    """
     if not content or not summary:
         return summary
 
     # Build sentence spans with their original positions so we can return the
-    # exact original text (preserving whitespace and punctuation) instead of
-    # re-joining with extra separators.
+    # exact original text (preserving whitespace and punctuation).
     sentence_spans = []
     start = 0
     for m in re.finditer(r'[。！？]', content):
@@ -284,22 +288,18 @@ def _extract_best_span(content, summary, max_sentences=3):
     if not sentence_spans:
         return summary
 
-    best_span = summary
+    best_span = sentence_spans[0][2]
     best_score = 0.0
 
-    for n in range(1, min(max_sentences + 1, len(sentence_spans) + 1)):
-        for i in range(len(sentence_spans) - n + 1):
-            span_start = sentence_spans[i][0]
-            span_end = sentence_spans[i + n - 1][1]
-            span = content[span_start:span_end].strip()
-            score = similarity(span, summary)
-            if score > best_score:
-                best_score = score
-                best_span = span
+    for i in range(len(sentence_spans)):
+        span = sentence_spans[i][2]
+        score = similarity(span, summary)
+        if score > best_score:
+            best_score = score
+            best_span = span
 
-    # Fall back to the summary itself if no reasonable original span is found
-    if best_score < 0.05:
-        return summary
+    # Always return the best original sentence; never fall back to the summary,
+    # because the user needs a highlightable sentence from the article.
     return best_span
 
 
