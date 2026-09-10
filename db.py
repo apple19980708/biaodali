@@ -257,16 +257,30 @@ def seed_data():
         ]
     for article in articles:
         if article['title'] in existing_titles:
-            continue
-        cursor.execute('''
-            INSERT INTO articles (method, title, content, difficulty, star_s, star_t, star_a, star_r, prep_p, prep_r, prep_e, prep_p2, keywords)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            article['method'], article['title'], article['content'], article['difficulty'],
-            article.get('star_s', ''), article.get('star_t', ''), article.get('star_a', ''), article.get('star_r', ''),
-            article.get('prep_p', ''), article.get('prep_r', ''), article.get('prep_e', ''), article.get('prep_p2', ''),
-            article.get('keywords', '')
-        ))
+            # Update existing article so fixes to star/prep fields and content propagate
+            cursor.execute('''
+                UPDATE articles SET
+                    method = ?, content = ?, difficulty = ?,
+                    star_s = ?, star_t = ?, star_a = ?, star_r = ?,
+                    prep_p = ?, prep_r = ?, prep_e = ?, prep_p2 = ?, keywords = ?
+                WHERE title = ?
+            ''', (
+                article['method'], article['content'], article['difficulty'],
+                article.get('star_s', ''), article.get('star_t', ''), article.get('star_a', ''), article.get('star_r', ''),
+                article.get('prep_p', ''), article.get('prep_r', ''), article.get('prep_e', ''), article.get('prep_p2', ''),
+                article.get('keywords', ''),
+                article['title']
+            ))
+        else:
+            cursor.execute('''
+                INSERT INTO articles (method, title, content, difficulty, star_s, star_t, star_a, star_r, prep_p, prep_r, prep_e, prep_p2, keywords)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                article['method'], article['title'], article['content'], article['difficulty'],
+                article.get('star_s', ''), article.get('star_t', ''), article.get('star_a', ''), article.get('star_r', ''),
+                article.get('prep_p', ''), article.get('prep_r', ''), article.get('prep_e', ''), article.get('prep_p2', ''),
+                article.get('keywords', '')
+            ))
 
     conn.commit()
     conn.close()

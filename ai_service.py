@@ -260,6 +260,20 @@ def feedback_free(transcript, topic, method):
     }
 
 
+def _sentence_bigram_similarity(s1, s2):
+    """Compute character bigram overlap between two Chinese strings."""
+    chars1 = re.findall(r'[\u4e00-\u9fff]', s1)
+    chars2 = re.findall(r'[\u4e00-\u9fff]', s2)
+    if len(chars1) < 2 or len(chars2) < 2:
+        return 0.0
+    bigrams1 = set(''.join(pair) for pair in zip(chars1, chars1[1:]))
+    bigrams2 = set(''.join(pair) for pair in zip(chars2, chars2[1:]))
+    intersection = bigrams1 & bigrams2
+    if not intersection:
+        return 0.0
+    return len(intersection) / max(len(bigrams1), len(bigrams2))
+
+
 def _extract_best_span(content, summary, max_sentences=1):
     """Find the single original sentence in content that best matches the summary.
 
@@ -293,7 +307,7 @@ def _extract_best_span(content, summary, max_sentences=1):
 
     for i in range(len(sentence_spans)):
         span = sentence_spans[i][2]
-        score = similarity(span, summary)
+        score = _sentence_bigram_similarity(span, summary)
         if score > best_score:
             best_score = score
             best_span = span

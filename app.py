@@ -20,6 +20,17 @@ from ai_service import format_feedback
 app = Flask(__name__)
 app.secret_key = 'expression-pro-secret-key'
 
+
+@app.after_request
+def add_no_cache_headers(response):
+    """Prevent browsers and proxies from caching API responses."""
+    if request.path.startswith('/api/'):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
+
+
 # Initialize database
 init_db()
 seed_data()

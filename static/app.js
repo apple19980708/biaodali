@@ -17,7 +17,7 @@ const app = {
 
     async loadUser() {
         try {
-            const res = await fetch('/api/user');
+            const res = await fetch('/api/user', { cache: 'no-store' });
             const data = await res.json();
             this.user = data.user;
             this.cycle = data.cycle;
@@ -107,7 +107,7 @@ const app = {
 
     // -------------------- Home --------------------
     async renderHome(container) {
-        const res = await fetch('/api/home');
+        const res = await fetch('/api/home', { cache: 'no-store' });
         const data = await res.json();
         const { streak, weekly, today_checked, week_progress, cycle } = data;
 
@@ -150,7 +150,7 @@ const app = {
                         <div class="stat-label">连续打卡天数</div>
                     </div>
                     <div class="stat-card py-2">
-                        <div class="stat-value">${cycle ? cycle.current_day + '/' + cycle.total_days : '0/4'}</div>
+                        <div class="stat-value">${cycle ? (cycle.current_article_number || 1) + '/' + cycle.total_days : '0/4'}</div>
                         <div class="stat-label">当前训练周期</div>
                     </div>
                 </div>
@@ -317,7 +317,7 @@ const app = {
 
     // -------------------- Article Reading + Highlight Analysis --------------------
     async renderArticleAndAnalysis(container) {
-        const res = await fetch('/api/article');
+        const res = await fetch('/api/article', { cache: 'no-store' });
         const data = await res.json();
         this.article = data.article;
         this.progress = data.progress;

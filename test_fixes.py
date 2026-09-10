@@ -8,7 +8,8 @@ from db import (
     init_db, seed_data, get_or_create_user, get_active_cycle,
     create_cycle, get_or_create_daily_progress, update_daily_progress,
     update_user_state, reset_daily_progress, reset_user_progress,
-    get_article_for_method, add_cycle_used_article_id
+    get_article_for_method, add_cycle_used_article_id,
+    get_connection
 )
 from ai_service import evaluate_drag_analysis, _extract_best_span
 
@@ -214,6 +215,32 @@ def test_current_article_number():
     print('  PASSED\n')
 
 
+
+
+def test_star_articles_unique_reference_spans():
+    print('--- Test: STAR articles have unique S/T/A/R reference spans ---')
+    setup()
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT title, content, star_s, star_t, star_a, star_r FROM articles WHERE method='STAR'")
+    rows = cursor.fetchall()
+    conn.close()
+
+    assert rows, 'No STAR articles found'
+    for row in rows:
+        spans = {
+            'S': _extract_best_span(row['content'], row['star_s']),
+            'T': _extract_best_span(row['content'], row['star_t']),
+            'A': _extract_best_span(row['content'], row['star_a']),
+            'R': _extract_best_span(row['content'], row['star_r']),
+        }
+        unique = set(spans.values())
+        assert len(unique) == 4, f"{row['title']}: S/T/A/R spans are not unique ({len(unique)}/4)"
+        print(f"  {row['title']}: {len(unique)}/4 unique spans")
+    print('  PASSED\n')
+
+
 if __name__ == '__main__':
     test_count_accuracy()
     test_footer_article_number()
@@ -222,4 +249,5 @@ if __name__ == '__main__':
     test_drag_reference_is_original_span()
     test_current_article_number()
     test_full_completion_flow_article_number()
+    test_star_articles_unique_reference_spans()
     print('All tests passed!')
