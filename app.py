@@ -382,7 +382,11 @@ def complete_day():
         'state': 'article_reading'
     })
 
-    return jsonify({'cycle_completed': False, 'next_day': next_day})
+    return jsonify({
+        'cycle_completed': False,
+        'next_day': next_day,
+        'cycle': get_active_cycle('U10086')
+    })
 
 
 @app.route('/api/day/retry', methods=['POST'])

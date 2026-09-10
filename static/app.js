@@ -694,70 +694,65 @@ const app = {
         if (!articleText || !correctTexts) return {};
 
         const plainText = articleText.textContent;
-        const normalizedPlain = this.normalizeText(plainText);
         const spans = [];
         const highlighted = {};
 
         Object.entries(correctTexts).forEach(([slot, text]) => {
             if (!text || text.length < 2) return;
-            const normalizedTarget = this.normalizeText(text);
-            if (!normalizedTarget) return;
 
-            // Try to find the target in the normalized plain text
-            let idx = normalizedPlain.indexOf(normalizedTarget);
+            // 1. Exact match first: the reference is an original sentence from the article
+            let idx = plainText.indexOf(text);
+            let matchedLen = text.length;
+
+            // 2. Fallback: ignore whitespace differences
             if (idx === -1) {
-                // Fallback: try shorter leading substring
-                const half = Math.floor(normalizedTarget.length / 2);
-                const shortTarget = normalizedTarget.slice(0, Math.max(half, 8));
-                idx = normalizedPlain.indexOf(shortTarget);
-            }
-            if (idx === -1) return;
+                const compactText = text.replace(/\s+/g, '');
+                const compactPlain = plainText.replace(/\s+/g, '');
+                const compactIdx = compactPlain.indexOf(compactText);
+                if (compactIdx === -1) return;
 
-            // Map normalized position back to raw text position by counting non-whitespace chars
-            let rawStart = 0;
-            let normCount = 0;
-            for (let i = 0; i < plainText.length && normCount < idx; i++) {
-                if (/\S/.test(plainText[i])) {
-                    normCount++;
+                // Map compact index back to raw plain text position
+                idx = 0;
+                let compactCount = 0;
+                while (idx < plainText.length && compactCount < compactIdx) {
+                    if (/\S/.test(plainText[idx])) compactCount++;
+                    idx++;
                 }
-                rawStart++;
-            }
-
-            let rawEnd = rawStart;
-            let targetNormCount = 0;
-            const targetLen = normalizedTarget.length;
-            for (let i = rawStart; i < plainText.length && targetNormCount < targetLen; i++) {
-                if (/\S/.test(plainText[i])) {
-                    targetNormCount++;
+                matchedLen = 0;
+                let matchedCompact = 0;
+                while (idx + matchedLen < plainText.length && matchedCompact < compactText.length) {
+                    if (/\S/.test(plainText[idx + matchedLen])) matchedCompact++;
+                    matchedLen++;
                 }
-                rawEnd++;
             }
 
-            spans.push({ start: rawStart, end: rawEnd, slot });
+            spans.push({ start: idx, end: idx + matchedLen, slot, text: plainText.slice(idx, idx + matchedLen) });
         });
 
         if (spans.length === 0) return highlighted;
 
-        // Sort by start position; prefer longer spans when overlaps occur
+        // Sort and merge overlapping spans so each character belongs to one slot
         spans.sort((a, b) => a.start - b.start || b.end - a.end);
         const merged = [];
         for (const span of spans) {
-            if (merged.length === 0 || span.start >= merged[merged.length - 1].end) {
-                merged.push(span);
-            } else if (span.end > merged[merged.length - 1].end) {
-                merged[merged.length - 1].end = span.end;
-                merged[merged.length - 1].slot = span.slot; // last one wins in overlap
+            const last = merged[merged.length - 1];
+            if (merged.length === 0 || span.start >= last.end) {
+                merged.push({ ...span });
+            } else if (span.end > last.end) {
+                last.end = span.end;
+                last.slot = span.slot;
+                last.text = plainText.slice(last.start, last.end);
             }
+            // If fully contained, ignore the smaller span
         }
 
-        // Rebuild HTML by wrapping text ranges
+        // Rebuild HTML by wrapping merged ranges
         let html = '';
         let lastEnd = 0;
         for (const span of merged) {
             html += this.escapeHtml(plainText.slice(lastEnd, span.start));
-            const highlightedText = plainText.slice(span.start, span.end);
-            html += `<span class="hl-correct hl-correct-${span.slot.toLowerCase()}">${this.escapeHtml(highlightedText)}</span>`;
-            highlighted[span.slot] = highlightedText;
+            html += `<span class="hl-correct hl-correct-${span.slot.toLowerCase()}">${this.escapeHtml(span.text)}</span>`;
+            highlighted[span.slot] = span.text;
             lastEnd = span.end;
         }
         html += this.escapeHtml(plainText.slice(lastEnd));
@@ -1413,6 +1408,9 @@ const app = {
     async nextDay() {
         const res = await fetch('/api/day/complete', { method: 'POST' });
         const data = await res.json();
+        if (data.cycle) {
+            this.cycle = data.cycle;
+        }
         await this.loadUser();
         this.render();
     },
