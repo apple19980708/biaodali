@@ -11,7 +11,7 @@ from db import (
     update_user_state, reset_daily_progress,
     get_article_for_method, get_article_by_id,
     get_cycle_used_article_ids, add_cycle_used_article_id,
-    increment_completed_articles_count,
+    increment_completed_articles_count, get_connection,
     save_drag_analysis, save_recording,
     checkin_today, get_checkin_dates, get_streak,
     reset_user_progress
