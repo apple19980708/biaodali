@@ -14,6 +14,9 @@ def get_connection():
 
 def _ensure_columns_exist(cursor, table, columns):
     """Add missing columns to an existing table (idempotent migration helper)."""
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,))
+    if not cursor.fetchone():
+        return
     cursor.execute(f"PRAGMA table_info({table})")
     existing = {row[1] for row in cursor.fetchall()}
     for name, definition in columns:
@@ -56,6 +59,11 @@ def init_db():
     _ensure_columns_exist(cursor, 'cycles', [
         ('completed_articles_count', 'INTEGER DEFAULT 0'),
         ('used_article_ids', 'TEXT DEFAULT \'[]\'')
+    ])
+
+    _ensure_columns_exist(cursor, 'recordings', [
+        ('llm_used', 'INTEGER DEFAULT 0'),
+        ('llm_provider', 'TEXT')
     ])
 
     cursor.execute('''
@@ -503,14 +511,16 @@ def save_drag_analysis(user_id, cycle_id, day, mappings):
     conn.close()
 
 
-def save_recording(user_id, cycle_id, day, module, step, transcript, ai_feedback, metrics=None):
+def save_recording(user_id, cycle_id, day, module, step, transcript, ai_feedback, metrics=None, llm_used=0, llm_provider=None):
     conn = get_connection()
     cursor = conn.cursor()
     now = datetime.now().isoformat()
     cursor.execute('''
-        INSERT INTO recordings (user_id, cycle_id, day, module, step, transcript, ai_feedback, metrics, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (user_id, cycle_id, day, module, step, transcript, ai_feedback, json.dumps(metrics, ensure_ascii=False) if metrics else None, now))
+        INSERT INTO recordings (user_id, cycle_id, day, module, step, transcript, ai_feedback, metrics, llm_used, llm_provider, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (user_id, cycle_id, day, module, step, transcript, ai_feedback,
+          json.dumps(metrics, ensure_ascii=False) if metrics else None,
+          1 if llm_used else 0, llm_provider, now))
     conn.commit()
     conn.close()
 

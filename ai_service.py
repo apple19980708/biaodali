@@ -16,16 +16,22 @@ import os
 # ---------------------------------------------------------------------------
 
 def _call_llm(messages, temperature=0.7, max_tokens=600):
-    """Call an OpenAI-compatible chat completion endpoint if configured."""
+    """Call an OpenAI-compatible chat completion endpoint if configured.
+
+    Returns (content, provider) tuple. content is None when no key is configured
+    or the call fails. provider is 'deepseek', 'openai', or None.
+    """
     # Prefer DeepSeek config, fall back to generic OpenAI-compatible config
     api_key = os.environ.get('DEEPSEEK_API_KEY') or os.environ.get('OPENAI_API_KEY')
     if not api_key:
-        return None
+        return None, None
 
     if os.environ.get('DEEPSEEK_API_KEY'):
+        provider = 'deepseek'
         base_url = (os.environ.get('DEEPSEEK_API_BASE') or 'https://api.deepseek.com/v1').rstrip('/')
         model = os.environ.get('DEEPSEEK_MODEL') or 'deepseek-chat'
     else:
+        provider = 'openai'
         base_url = (os.environ.get('OPENAI_API_BASE') or 'https://api.openai.com/v1').rstrip('/')
         model = os.environ.get('OPENAI_MODEL') or 'gpt-3.5-turbo'
 
@@ -49,10 +55,10 @@ def _call_llm(messages, temperature=0.7, max_tokens=600):
         )
         with urllib.request.urlopen(req, timeout=30) as resp:
             data = json.loads(resp.read().decode('utf-8'))
-            return data['choices'][0]['message']['content'].strip()
+            return data['choices'][0]['message']['content'].strip(), provider
     except Exception as e:
         print('LLM call failed, falling back to heuristic feedback:', e)
-        return None
+        return None, provider
 
 
 def _try_parse_json(text):
@@ -380,17 +386,27 @@ def evaluate_drag_analysis(user_mappings, article):
 # LLM-based feedback (used when OPENAI_API_KEY is set)
 # ---------------------------------------------------------------------------
 
-def llm_feedback_qa(transcript, article_title, method):
+def llm_feedback_qa(transcript, article_title, method, out_info=None):
     prompt = f"""你是一位中文表达力教练。用户刚完成一道问答练习。
 文章标题：{article_title}
 使用方法：{method}
 用户回答：{transcript}
 
 请给出一段 30-60 字的简短反馈，先肯定优点，再给一条具体改进建议。只返回反馈文字，不要返回 JSON。"""
-    return _call_llm([{'role': 'system', 'content': '你是中文表达力教练，语气鼓励、具体。'}, {'role': 'user', 'content': prompt}])
+    result = _call_llm([{'role': 'system', 'content': '你是中文表达力教练，语气鼓励、具体。'}, {'role': 'user', 'content': prompt}])
+    if result:
+        content, provider = result
+        if out_info is not None:
+            out_info['llm_used'] = 1
+            out_info['llm_provider'] = provider
+        return content
+    if out_info is not None:
+        out_info['llm_used'] = 0
+        out_info['llm_provider'] = None
+    return None
 
 
-def llm_feedback_retell(transcript, original_text):
+def llm_feedback_retell(transcript, original_text, out_info=None):
     prompt = f"""你是一位中文表达力教练。用户刚完成一篇文章复述。
 原文：{original_text[:600]}
 用户复述：{transcript}
@@ -402,15 +418,23 @@ def llm_feedback_retell(transcript, original_text):
   "comfort": "一句鼓励的话"
 }}
 只返回 JSON，不要加 markdown 标记。"""
-    content = _call_llm([{'role': 'system', 'content': '你是中文表达力教练，擅长复述润色。'}, {'role': 'user', 'content': prompt}])
-    parsed = _try_parse_json(content)
-    if parsed and all(k in parsed for k in ('suggestion', 'polish', 'comfort')):
-        parsed['overlap'] = round(similarity(transcript, original_text), 2)
-        return parsed
+    result = _call_llm([{'role': 'system', 'content': '你是中文表达力教练，擅长复述润色。'}, {'role': 'user', 'content': prompt}])
+    if result:
+        content, provider = result
+        parsed = _try_parse_json(content)
+        if parsed and all(k in parsed for k in ('suggestion', 'polish', 'comfort')):
+            parsed['overlap'] = round(similarity(transcript, original_text), 2)
+            if out_info is not None:
+                out_info['llm_used'] = 1
+                out_info['llm_provider'] = provider
+            return parsed
+    if out_info is not None:
+        out_info['llm_used'] = 0
+        out_info['llm_provider'] = None
     return None
 
 
-def llm_feedback_free(transcript, topic, method):
+def llm_feedback_free(transcript, topic, method, out_info=None):
     prompt = f"""你是一位中文表达力教练。用户刚完成一段主动即兴表达。
 话题：{topic}
 使用方法：{method}
@@ -429,17 +453,25 @@ def llm_feedback_free(transcript, topic, method):
   }}
 }}
 只返回 JSON，不要加 markdown 标记。"""
-    content = _call_llm([{'role': 'system', 'content': '你是中文表达力教练，擅长即兴表达分析。'}, {'role': 'user', 'content': prompt}])
-    parsed = _try_parse_json(content)
-    if parsed and all(k in parsed for k in ('suggestion', 'rewrite', 'comfort_message', 'metrics_display')):
-        # Provide backend metrics so the app can still record them
-        parsed['metrics_backend'] = {
-            'relevance_score': random.randint(6, 10),
-            'structure_score': random.randint(6, 10),
-            'density_score': random.randint(6, 10),
-            'habit_count': habit_count(transcript)
-        }
-        return parsed
+    result = _call_llm([{'role': 'system', 'content': '你是中文表达力教练，擅长即兴表达分析。'}, {'role': 'user', 'content': prompt}])
+    if result:
+        content, provider = result
+        parsed = _try_parse_json(content)
+        if parsed and all(k in parsed for k in ('suggestion', 'rewrite', 'comfort_message', 'metrics_display')):
+            # Provide backend metrics so the app can still record them
+            parsed['metrics_backend'] = {
+                'relevance_score': random.randint(6, 10),
+                'structure_score': random.randint(6, 10),
+                'density_score': random.randint(6, 10),
+                'habit_count': habit_count(transcript)
+            }
+            if out_info is not None:
+                out_info['llm_used'] = 1
+                out_info['llm_provider'] = provider
+            return parsed
+    if out_info is not None:
+        out_info['llm_used'] = 0
+        out_info['llm_provider'] = None
     return None
 
 
@@ -447,21 +479,32 @@ def llm_feedback_free(transcript, topic, method):
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def format_feedback(module, transcript, context):
+def format_feedback(module, transcript, context, out_info=None):
+    """Return feedback for a module. Optionally fill out_info with LLM usage metadata."""
+    if out_info is None:
+        out_info = {}
     if module == 'qa':
         # Try LLM first, fall back to heuristic
-        llm = llm_feedback_qa(transcript, context.get('topic', ''), context.get('method', ''))
+        llm = llm_feedback_qa(transcript, context.get('topic', ''), context.get('method', ''), out_info)
         if llm:
             return llm
+        out_info['llm_used'] = 0
+        out_info['llm_provider'] = None
         return feedback_qa(transcript, context.get('topic', ''), context.get('method', ''))
     elif module == 'retell':
-        llm = llm_feedback_retell(transcript, context.get('original', ''))
+        llm = llm_feedback_retell(transcript, context.get('original', ''), out_info)
         if llm:
             return llm
+        out_info['llm_used'] = 0
+        out_info['llm_provider'] = None
         return feedback_retell(transcript, context.get('original', ''))
     elif module == 'free':
-        llm = llm_feedback_free(transcript, context.get('topic', ''), context.get('method', ''))
+        llm = llm_feedback_free(transcript, context.get('topic', ''), context.get('method', ''), out_info)
         if llm:
             return llm
+        out_info['llm_used'] = 0
+        out_info['llm_provider'] = None
         return feedback_free(transcript, context.get('topic', ''), context.get('method', ''))
+    out_info['llm_used'] = 0
+    out_info['llm_provider'] = None
     return "继续加油！"

@@ -285,12 +285,14 @@ def qa_feedback():
         return jsonify({'error': 'No active cycle'}), 400
 
     article = get_article_for_method(cycle['method'])
+    llm_info = {}
     feedback = format_feedback('qa', transcript, {
         'topic': article['title'] if article else '',
         'method': cycle['method']
-    })
+    }, out_info=llm_info)
 
-    save_recording('U10086', cycle['id'], cycle['current_day'], 'output', 'qa', transcript, feedback)
+    save_recording('U10086', cycle['id'], cycle['current_day'], 'output', 'qa', transcript, feedback,
+                   llm_used=llm_info.get('llm_used', 0), llm_provider=llm_info.get('llm_provider'))
     update_daily_progress('U10086', cycle['id'], cycle['current_day'], {
         'qa_completed': 1
     })
@@ -312,14 +314,16 @@ def retell_feedback():
     article = get_article_by_id(progress['article_id']) if progress['article_id'] else None
     original = article['content'] if article else ''
 
-    result = format_feedback('retell', transcript, {'original': original})
+    llm_info = {}
+    result = format_feedback('retell', transcript, {'original': original}, out_info=llm_info)
 
     if isinstance(result, dict):
         feedback_text = f"【建议】{result['suggestion']}\n【润色】{result['polish']}\n{result['comfort']}"
     else:
         feedback_text = f"【建议】{result}"
 
-    save_recording('U10086', cycle['id'], cycle['current_day'], 'output', 'retell', transcript, feedback_text)
+    save_recording('U10086', cycle['id'], cycle['current_day'], 'output', 'retell', transcript, feedback_text,
+                   llm_used=llm_info.get('llm_used', 0), llm_provider=llm_info.get('llm_provider'))
     update_daily_progress('U10086', cycle['id'], cycle['current_day'], {
         'retell_completed': 1
     })
@@ -338,13 +342,16 @@ def free_feedback():
     if not cycle:
         return jsonify({'error': 'No active cycle'}), 400
 
+    llm_info = {}
     result = format_feedback('free', transcript, {
         'topic': topic,
         'method': cycle['method']
-    })
+    }, out_info=llm_info)
 
     feedback_text = f"【建议】{result['suggestion']}\n【详细报告】{json.dumps(result, ensure_ascii=False)}"
-    save_recording('U10086', cycle['id'], cycle['current_day'], 'output', 'free', transcript, feedback_text, result.get('metrics_backend'))
+    save_recording('U10086', cycle['id'], cycle['current_day'], 'output', 'free', transcript, feedback_text,
+                   result.get('metrics_backend'), llm_used=llm_info.get('llm_used', 0),
+                   llm_provider=llm_info.get('llm_provider'))
     update_daily_progress('U10086', cycle['id'], cycle['current_day'], {
         'free_completed': 1,
         'completed': 1
@@ -547,6 +554,12 @@ def admin():
         cursor.execute('SELECT * FROM checkins WHERE user_id = ? ORDER BY checkin_date DESC', (uid,))
         checkins[uid] = [dict(row) for row in cursor.fetchall()]
 
+    recordings_list = {}
+    cursor.execute('SELECT * FROM recordings ORDER BY created_at DESC LIMIT 200')
+    for row in cursor.fetchall():
+        uid = row['user_id']
+        recordings_list.setdefault(uid, []).append(dict(row))
+
     conn.close()
 
     rows = []
@@ -563,6 +576,12 @@ def admin():
             <td class="border p-2">{len(checkins[uid])}</td>
             <td class="border p-2">
                 <details>
+                    <summary>录音记录 ({len(recordings_list.get(uid, []))})</summary>
+                    <ul class="mt-1 text-sm">
+                        {''.join(f"<li>{r['created_at'][:16]} | {r['step']} | LLM:{r['llm_provider'] or '未使用'}({ '成功' if r['llm_used'] else '规则' }) | {r['transcript'][:30] if r['transcript'] else '无文字'}...</li>" for r in recordings_list.get(uid, [])[:10])}
+                    </ul>
+                </details>
+                <details class="mt-1">
                     <summary>周期 ({len(cycles[uid])})</summary>
                     <ul class="mt-1 text-sm">
                         {''.join(f"<li>#{c['id']} {c['method']} 第{c['current_day']}/{c['total_days']}天 完成{c['completed_articles_count']}篇 {'进行中' if c['status']=='active' else '已完成'}</li>" for c in cycles[uid])}
