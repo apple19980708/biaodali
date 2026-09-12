@@ -467,11 +467,29 @@ const app = {
         const toolbar = document.createElement('div');
         toolbar.id = 'highlight-toolbar';
         toolbar.className = 'highlight-toolbar';
+        // Keep the selected text in a data attribute so click handlers don't rely on
+        // the live selection (which collapses when the user touches the toolbar).
+        this.pendingHighlightText = text;
+        toolbar.dataset.text = text;
         toolbar.innerHTML = options.map(opt => `
-            <button class="toolbar-btn" onclick="app.assignHighlight('${opt.key}', '${text.replace(/'/g, "\\'")}')" title="标记为${opt.name}">
+            <button class="toolbar-btn" data-slot="${opt.key}" title="标记为${opt.name}">
                 ${opt.label}
             </button>
         `).join('');
+
+        // Prevent pointer/touch events from clearing the underlying text selection.
+        toolbar.addEventListener('pointerdown', (e) => e.preventDefault());
+        toolbar.addEventListener('mousedown', (e) => e.preventDefault());
+        toolbar.addEventListener('touchstart', (e) => e.preventDefault());
+
+        toolbar.addEventListener('click', (e) => {
+            const btn = e.target.closest('.toolbar-btn');
+            if (!btn) return;
+            const slot = btn.dataset.slot;
+            const selected = toolbar.dataset.text || this.pendingHighlightText || '';
+            if (!selected) return;
+            this.assignHighlight(slot, selected);
+        });
 
         const main = document.getElementById('main');
         const mainRect = main.getBoundingClientRect();
@@ -487,17 +505,18 @@ const app = {
     },
 
     assignHighlight(slot, text) {
+        if (!text || !text.trim()) return;
         if (!this.selections[slot]) {
             this.selections[slot] = [];
         }
-        this.selections[slot].push(text);
+        this.selections[slot].push(text.trim());
 
-        // Wrap selected text in article with highlight class
+        // Wrap selected text in article with highlight class if a range is still available.
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
             const span = document.createElement('span');
-            span.className = `hl-${slot}`;
+            span.className = `hl-${slot.toLowerCase()}`;
             try {
                 range.surroundContents(span);
             } catch (e) {
@@ -987,32 +1006,67 @@ const app = {
     },
 
     async submitQA() {
+        const nextBtn = document.getElementById('qa-next');
+        if (nextBtn && nextBtn.dataset.loading === 'true') return;
+
         const transcript = document.getElementById('qa-transcript').value.trim();
         if (!transcript) {
             alert('请先输入或录制回答内容');
             return;
         }
 
-        const res = await fetch('/api/qa/feedback', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ transcript })
-        });
-
-        const data = await res.json();
-        const feedbackEl = document.getElementById('qa-feedback');
-        if (feedbackEl) {
-            feedbackEl.textContent = data.feedback;
-            feedbackEl.classList.remove('hidden');
+        if (nextBtn) {
+            nextBtn.dataset.loading = 'true';
+            nextBtn.textContent = '生成反馈中...';
+            nextBtn.disabled = true;
         }
 
-        const nextBtn = document.getElementById('qa-next');
-        if (nextBtn) {
-            nextBtn.textContent = '进入复述环节';
-            nextBtn.onclick = async () => {
-                await this.loadUser();
-                this.render();
-            };
+        try {
+            const res = await fetch('/api/qa/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transcript })
+            });
+
+            if (!res.ok) {
+                const err = await res.text();
+                alert('提交失败，请重试：' + err);
+                if (nextBtn) {
+                    nextBtn.dataset.loading = 'false';
+                    nextBtn.textContent = '下一步';
+                    nextBtn.disabled = false;
+                }
+                return;
+            }
+
+            const data = await res.json();
+            const feedbackEl = document.getElementById('qa-feedback');
+            if (feedbackEl) {
+                feedbackEl.textContent = data.feedback;
+                feedbackEl.classList.remove('hidden');
+            }
+
+            // Move forward locally right away so we don't depend on a fresh /api/user call.
+            if (this.user) this.user.state = 'retell';
+            this.state = 'retell';
+
+            if (nextBtn) {
+                nextBtn.dataset.loading = 'false';
+                nextBtn.textContent = '进入复述环节';
+                nextBtn.disabled = false;
+                nextBtn.onclick = async () => {
+                    await this.loadUser();
+                    this.render();
+                };
+            }
+        } catch (err) {
+            console.error('submitQA error:', err);
+            alert('网络错误，请重试');
+            if (nextBtn) {
+                nextBtn.dataset.loading = 'false';
+                nextBtn.textContent = '下一步';
+                nextBtn.disabled = false;
+            }
         }
     },
 
