@@ -339,7 +339,7 @@ def get_active_cycle(user_id):
     # Keep the counter in sync with actual daily_progress so display never drifts
     cycle['completed_articles_count'] = sync_completed_articles_count(cycle['id'])
     # Unified article number for all "第 X 篇" displays (1-based, current learning article)
-    cycle['current_article_number'] = cycle['completed_articles_count'] + 1
+    cycle['current_article_number'] = cycle['current_day']
     return cycle
 
 

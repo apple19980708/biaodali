@@ -38,7 +38,8 @@ STATIC_VERSION = _static_version()
 
 @app.context_processor
 def inject_static_version():
-    return dict(static_version=STATIC_VERSION)
+    # Recompute per request so edits take effect without restarting the server
+    return dict(static_version=_static_version())
 
 
 @app.after_request

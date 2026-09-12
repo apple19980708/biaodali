@@ -64,7 +64,7 @@ const app = {
     getCurrentArticleNumber() {
         if (!this.cycle) return 1;
         if (this.cycle.current_article_number) return this.cycle.current_article_number;
-        return (this.cycle.completed_articles_count || 0) + 1;
+        return this.cycle.current_day || 1;
     },
 
     render() {

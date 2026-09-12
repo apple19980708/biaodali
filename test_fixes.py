@@ -210,8 +210,8 @@ def test_current_article_number():
     })
 
     cycle = get_active_cycle(user_id)
-    assert cycle['current_article_number'] == 2, f"Expected 2, got {cycle['current_article_number']}"
-    print(f"  After day 1 complete: current_article_number={cycle['current_article_number']}")
+    assert cycle['current_article_number'] == 1, f"After day 1 complete, still on day 1, expected 1, got {cycle['current_article_number']}"
+    print(f"  After day 1 complete: current_article_number={cycle['current_article_number']} (still day 1)")
     print('  PASSED\n')
 
 
