@@ -477,11 +477,8 @@ const app = {
             </button>
         `).join('');
 
-        // Prevent pointer/touch events from clearing the underlying text selection.
-        toolbar.addEventListener('pointerdown', (e) => e.preventDefault());
-        toolbar.addEventListener('mousedown', (e) => e.preventDefault());
-        toolbar.addEventListener('touchstart', (e) => e.preventDefault());
-
+        // Use captured text (stored in data-text) so the button click does not rely on
+        // the live text selection, which collapses when the user touches the toolbar.
         toolbar.addEventListener('click', (e) => {
             const btn = e.target.closest('.toolbar-btn');
             if (!btn) return;
