@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import os
 import json
 import hashlib
+import sqlite3
 from datetime import datetime
 
 from db import (
@@ -512,6 +513,121 @@ def reset_all():
     return jsonify({'success': True})
 
 
+
+
+# -------------------- Admin: view users --------------------
+
+@app.route('/admin')
+def admin():
+    """Simple admin page to view all users and their progress."""
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT * FROM users ORDER BY created_at DESC')
+    users = [dict(row) for row in cursor.fetchall()]
+
+    cycles = {}
+    progress = {}
+    checkins = {}
+    for user in users:
+        uid = user['user_id']
+        cursor.execute('SELECT * FROM cycles WHERE user_id = ? ORDER BY created_at DESC', (uid,))
+        cycles[uid] = [dict(row) for row in cursor.fetchall()]
+
+        cursor.execute('''
+            SELECT dp.*, a.title as article_title
+            FROM daily_progress dp
+            LEFT JOIN articles a ON dp.article_id = a.id
+            WHERE dp.user_id = ?
+            ORDER BY dp.cycle_id DESC, dp.day ASC
+        ''', (uid,))
+        progress[uid] = [dict(row) for row in cursor.fetchall()]
+
+        cursor.execute('SELECT * FROM checkins WHERE user_id = ? ORDER BY checkin_date DESC', (uid,))
+        checkins[uid] = [dict(row) for row in cursor.fetchall()]
+
+    conn.close()
+
+    rows = []
+    for user in users:
+        uid = user['user_id']
+        row_html = f"""
+        <tr>
+            <td class="border p-2">{uid}</td>
+            <td class="border p-2">{user['created_at']}</td>
+            <td class="border p-2">{user['current_method'] or '-'}</td>
+            <td class="border p-2">{user['cycle_day']}/{user['cycle_total_days']}</td>
+            <td class="border p-2">{user['state']}</td>
+            <td class="border p-2">{len(cycles[uid])}</td>
+            <td class="border p-2">{len(checkins[uid])}</td>
+            <td class="border p-2">
+                <details>
+                    <summary>周期 ({len(cycles[uid])})</summary>
+                    <ul class="mt-1 text-sm">
+                        {''.join(f"<li>#{c['id']} {c['method']} 第{c['current_day']}/{c['total_days']}天 完成{c['completed_articles_count']}篇 {'进行中' if c['status']=='active' else '已完成'}</li>" for c in cycles[uid])}
+                    </ul>
+                </details>
+                <details class="mt-1">
+                    <summary>进度 ({len(progress[uid])})</summary>
+                    <ul class="mt-1 text-sm">
+                        {''.join(f"<li>周期{p['cycle_id']}第{p['day']}天: {p['article_title'] or '无文章'} | 方法{p['method_learned']} 划线{p['drag_completed']} 问答{p['qa_completed']} 复述{p['retell_completed']} 输出{p['free_completed']} | {'已完成' if p['completed'] else '进行中'}</li>" for p in progress[uid])}
+                    </ul>
+                </details>
+            </td>
+        </tr>
+        """
+        rows.append(row_html)
+
+    html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台 - 使用者信息</title>
+    <style>
+        body {{ font-family: system-ui, -apple-system, sans-serif; padding: 20px; background: #f8fafc; }}
+        h1 {{ color: #059669; }}
+        table {{ width: 100%; border-collapse: collapse; background: white; margin-top: 16px; }}
+        th {{ background: #059669; color: white; text-align: left; }}
+        th, td {{ border: 1px solid #e2e8f0; padding: 8px; }}
+        details {{ cursor: pointer; }}
+    </style>
+</head>
+<body>
+    <h1>使用者信息（共 {len(users)} 人）</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>使用者 ID</th>
+                <th>创建时间</th>
+                <th>当前方法</th>
+                <th>周期天</th>
+                <th>状态</th>
+                <th>周期数</th>
+                <th>打卡数</th>
+                <th>详情</th>
+            </tr>
+        </thead>
+        <tbody>
+            {''.join(rows)}
+        </tbody>
+    </table>
+</body>
+</html>"""
+    return html
+
+
+@app.route('/api/admin/users')
+def api_admin_users():
+    """JSON API for user data."""
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM users ORDER BY created_at DESC')
+    users = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify({'users': users, 'count': len(users)})
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 5000))
