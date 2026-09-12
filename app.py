@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 import os
 import json
+import hashlib
 from datetime import datetime
 
 from db import (
@@ -19,6 +20,25 @@ from ai_service import format_feedback
 
 app = Flask(__name__)
 app.secret_key = 'expression-pro-secret-key'
+
+
+def _static_version():
+    """Generate a cache-busting version based on static file mtimes."""
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+    pieces = []
+    for filename in ['app.js', 'style.css']:
+        filepath = os.path.join(static_dir, filename)
+        if os.path.exists(filepath):
+            pieces.append(f"{filename}:{os.path.getmtime(filepath):.0f}")
+    return hashlib.md5('|'.join(pieces).encode()).hexdigest()[:8] if pieces else '1'
+
+
+STATIC_VERSION = _static_version()
+
+
+@app.context_processor
+def inject_static_version():
+    return dict(static_version=STATIC_VERSION)
 
 
 @app.after_request

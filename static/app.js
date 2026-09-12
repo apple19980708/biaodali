@@ -1408,10 +1408,15 @@ const app = {
     async nextDay() {
         const res = await fetch('/api/day/complete', { method: 'POST' });
         const data = await res.json();
-        if (data.cycle) {
-            this.cycle = data.cycle;
+        // Use the fresh cycle returned by the server; protect it from a stale /api/user response
+        const freshCycle = data.cycle || null;
+        if (freshCycle) {
+            this.cycle = freshCycle;
         }
         await this.loadUser();
+        if (freshCycle) {
+            this.cycle = freshCycle;
+        }
         this.render();
     },
 
