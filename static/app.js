@@ -1397,8 +1397,8 @@ const app = {
                         <button onclick="app.unlockNewMethod()" class="btn-primary w-full">解锁新方法</button>
                         <button onclick="app.retrySameMethod()" class="btn-secondary w-full">再学一篇本方法</button>
                     ` : `
-                        <button onclick="app.nextDay()" class="btn-primary w-full">完成</button>
-                        <button onclick="app.retryDay()" class="btn-secondary w-full">再练一篇</button>
+                        <button onclick="app.goHome()" class="btn-primary w-full">完成</button>
+                        <button onclick="app.nextDay()" class="btn-secondary w-full">再练一篇</button>
                     `}
                 </div>
             </div>
