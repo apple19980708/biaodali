@@ -562,6 +562,38 @@ def admin():
 
     conn.close()
 
+    def fmt_metrics(m):
+        if not m:
+            return '-'
+        try:
+            data = json.loads(m) if isinstance(m, str) else m
+            if isinstance(data, dict):
+                parts = []
+                for k, v in data.items():
+                    if isinstance(v, (int, float)):
+                        parts.append(f"{k}={v}")
+                return ', '.join(parts) if parts else '-'
+        except Exception:
+            pass
+        return '-'
+
+    recording_rows_list = []
+    for r in sorted([rec for recs in recordings_list.values() for rec in recs], key=lambda x: x.get('created_at', ''), reverse=True):
+        recording_rows_list.append(f"""
+        <tr>
+            <td class="border p-2">{r.get('created_at', '-')[:16]}</td>
+            <td class="border p-2">{r.get('user_id', '-')}</td>
+            <td class="border p-2">{r.get('module', '-')}</td>
+            <td class="border p-2">{r.get('step', '-')}</td>
+            <td class="border p-2">{r.get('llm_provider') or '未使用'}</td>
+            <td class="border p-2">{'成功' if r.get('llm_used') else '规则回退'}</td>
+            <td class="border p-2">{(r.get('transcript') or '无文字')[:80]}{'...' if (r.get('transcript') or '') and len(r.get('transcript', '')) > 80 else ''}</td>
+            <td class="border p-2">{(r.get('ai_feedback') or '-')[:80]}{'...' if (r.get('ai_feedback') or '') and len(r.get('ai_feedback', '')) > 80 else ''}</td>
+            <td class="border p-2">{fmt_metrics(r.get('metrics'))}</td>
+        </tr>
+        """)
+    recording_rows = ''.join(recording_rows_list)
+
     rows = []
     for user in users:
         uid = user['user_id']
@@ -576,12 +608,6 @@ def admin():
             <td class="border p-2">{len(checkins[uid])}</td>
             <td class="border p-2">
                 <details>
-                    <summary>录音记录 ({len(recordings_list.get(uid, []))})</summary>
-                    <ul class="mt-1 text-sm">
-                        {''.join(f"<li>{r['created_at'][:16]} | {r['step']} | LLM:{r['llm_provider'] or '未使用'}({ '成功' if r['llm_used'] else '规则' }) | {r['transcript'][:30] if r['transcript'] else '无文字'}...</li>" for r in recordings_list.get(uid, [])[:10])}
-                    </ul>
-                </details>
-                <details class="mt-1">
                     <summary>周期 ({len(cycles[uid])})</summary>
                     <ul class="mt-1 text-sm">
                         {''.join(f"<li>#{c['id']} {c['method']} 第{c['current_day']}/{c['total_days']}天 完成{c['completed_articles_count']}篇 {'进行中' if c['status']=='active' else '已完成'}</li>" for c in cycles[uid])}
@@ -630,6 +656,26 @@ def admin():
         </thead>
         <tbody>
             {''.join(rows)}
+        </tbody>
+    </table>
+
+    <h2 style="margin-top: 32px;">录音记录（最近 200 条）</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>时间</th>
+                <th>用户 ID</th>
+                <th>模块</th>
+                <th>步骤</th>
+                <th>LLM Provider</th>
+                <th>LLM 状态</th>
+                <th>录音文字</th>
+                <th>AI 反馈</th>
+                <th>质量分</th>
+            </tr>
+        </thead>
+        <tbody>
+            {recording_rows}
         </tbody>
     </table>
 </body>
