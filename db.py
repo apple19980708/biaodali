@@ -61,11 +61,6 @@ def init_db():
         ('used_article_ids', 'TEXT DEFAULT \'[]\'')
     ])
 
-    _ensure_columns_exist(cursor, 'recordings', [
-        ('llm_used', 'INTEGER DEFAULT 0'),
-        ('llm_provider', 'TEXT')
-    ])
-
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS daily_progress (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,6 +104,11 @@ def init_db():
             created_at TEXT NOT NULL
         )
     ''')
+
+    _ensure_columns_exist(cursor, 'recordings', [
+        ('llm_used', 'INTEGER DEFAULT 0'),
+        ('llm_provider', 'TEXT')
+    ])
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS checkins (
